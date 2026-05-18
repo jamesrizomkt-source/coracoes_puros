@@ -1,0 +1,1177 @@
+/* ==========================================
+   CORAÇÕES PUROS - ADMIN CONTROLLER (JAVASCRIPT)
+   ========================================== */
+
+const SUPABASE_URL = "https://idsqzkosgzoeratfzonx.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlkc3F6a29zZ3pvZXJhdGZ6b254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNzUwNjgsImV4cCI6MjA4Nzk1MTA2OH0.yumr5Wwf93cWLvpp45lRdZyHehkj2sJK9Ht_W8aA65k";
+
+// Configuração do Quiz correspondente ao script.js
+const quizQuestions = [
+  {
+    question: "Quando falamos em proteção da infância, qual atitude deve vir primeiro?",
+    answer: "Informar, prevenir e fortalecer ambientes seguros"
+  },
+  {
+    question: "Se uma criança relata uma situação de violência, qual é a postura mais adequada?",
+    answer: "Escutar com calma, acolher e acionar a rede de proteção"
+  },
+  {
+    question: "Segundo a proposta do livro, quem deve participar da rede de proteção?",
+    answer: "Famílias, escolas, igrejas, comunidades e gestores públicos"
+  },
+  {
+    question: "Qual campanha reforça a conscientização contra o abuso e a exploração sexual de crianças e adolescentes?",
+    answer: "Maio Laranja"
+  },
+  {
+    question: "No contexto do livro, o que significa romper o silêncio?",
+    answer: "Falar do tema com responsabilidade, denunciar e buscar ajuda"
+  },
+  {
+    question: "Qual destas iniciativas citadas fortalece a proteção também no ambiente digital?",
+    answer: "Proteção Digital"
+  }
+];
+
+// Estado Geral da Aplicação
+const state = {
+  token: null,
+  user: null,
+  profile: null,
+  activeTab: "dashboard",
+  leads: [],
+  messages: [],
+  quizResponses: [],
+  users: [],
+  currentModalCallback: null
+};
+
+// ==========================================
+// INICIALIZAÇÃO E VERIFICAÇÃO DE SESSÃO
+// ==========================================
+document.addEventListener("DOMContentLoaded", async () => {
+  setupEventListeners();
+  
+  // Tentar restaurar sessão
+  const savedToken = sessionStorage.getItem("admin_token") || localStorage.getItem("admin_token");
+  const savedUser = sessionStorage.getItem("admin_user") || localStorage.getItem("admin_user");
+  const savedProfile = sessionStorage.getItem("admin_profile") || localStorage.getItem("admin_profile");
+  
+  if (savedToken && savedUser) {
+    state.token = savedToken;
+    state.user = JSON.parse(savedUser);
+    state.profile = savedProfile ? JSON.parse(savedProfile) : null;
+    
+    // Verificar se o token ainda é válido chamando a API do Supabase
+    const isValid = await verifySession();
+    if (isValid) {
+      showAdminPanel();
+    } else {
+      clearSession();
+      showToast("Sessão expirada. Faça login novamente.", "error");
+    }
+  }
+});
+
+// Verifica a autenticidade do token do usuário
+async function verifySession() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${state.token}`
+      }
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("Erro ao verificar sessão:", err);
+    return false;
+  }
+}
+
+// ==========================================
+// CONTROLE DE EVENTOS & LOGIN
+// ==========================================
+function setupEventListeners() {
+  // Formulário de Login
+  const loginForm = document.getElementById("js-login-form");
+  if (loginForm) {
+    loginForm.addEventListener("submit", handleLogin);
+  }
+
+  // Abas da Sidebar
+  const tabTriggers = document.querySelectorAll("[data-tab-trigger]");
+  tabTriggers.forEach(trigger => {
+    trigger.addEventListener("click", () => {
+      const tabId = trigger.getAttribute("data-tab-trigger");
+      switchTab(tabId);
+    });
+  });
+
+  // Botão Sair (Logout)
+  const logoutBtn = document.getElementById("js-btn-logout");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      clearSession();
+      showToast("Desconectado com sucesso.", "success");
+      // Esconder painel e exibir login
+      document.getElementById("js-admin-container").style.display = "none";
+      document.getElementById("js-login-wrapper").style.display = "flex";
+    });
+  }
+
+  // Botão Atualizar Dados (Refresh)
+  const refreshBtn = document.getElementById("js-btn-refresh");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      fetchAllData(true);
+    });
+  }
+
+  // Botão Exportar CSV
+  const exportBtn = document.getElementById("js-btn-export");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", handleExportCSV);
+  }
+
+  // Binds de Busca e Filtros
+  const leadsSearch = document.getElementById("leads-search");
+  if (leadsSearch) leadsSearch.addEventListener("input", renderLeadsTable);
+
+  const leadsFilter = document.getElementById("leads-status-filter");
+  if (leadsFilter) leadsFilter.addEventListener("change", renderLeadsTable);
+
+  const messagesSearch = document.getElementById("messages-search");
+  if (messagesSearch) messagesSearch.addEventListener("input", renderMessagesList);
+
+  // Binds para a aba Configurações
+  const signupForm = document.getElementById("js-signup-form");
+  if (signupForm) signupForm.addEventListener("submit", handleSignUp);
+
+  const usersSearch = document.getElementById("users-search");
+  if (usersSearch) usersSearch.addEventListener("input", renderUsersTable);
+
+  // Binds para controle de Senha Provisória (Ver e Gerar/Trocar)
+  const toggleBtn = document.getElementById("js-toggle-signup-password");
+  const passwordInput = document.getElementById("signup-password");
+  if (toggleBtn && passwordInput) {
+    toggleBtn.addEventListener("click", () => {
+      const isPassword = passwordInput.getAttribute("type") === "password";
+      passwordInput.setAttribute("type", isPassword ? "text" : "password");
+      toggleBtn.style.color = isPassword ? "var(--accent-blue-hover)" : "var(--text-muted)";
+      toggleBtn.innerHTML = isPassword 
+        ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye-off"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
+        : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+    });
+  }
+
+  const generateBtn = document.getElementById("js-generate-signup-password");
+  if (generateBtn && passwordInput) {
+    generateBtn.addEventListener("click", () => {
+      const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*";
+      let newPassword = "";
+      for (let i = 0; i < 10; i++) {
+        newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      passwordInput.value = newPassword;
+      passwordInput.setAttribute("type", "text");
+      
+      // Sincronizar o botão de Ver/Ocultar
+      if (toggleBtn) {
+        toggleBtn.style.color = "var(--accent-blue-hover)";
+        toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye-off"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+      }
+      
+      showToast("Nova senha provisória gerada com sucesso!", "success");
+    });
+  }
+
+  // Modal de Confirmação - Binds
+  document.getElementById("confirm-btn-cancel").addEventListener("click", closeConfirmModal);
+  document.getElementById("confirm-btn-proceed").addEventListener("click", () => {
+    if (state.currentModalCallback) {
+      state.currentModalCallback();
+      closeConfirmModal();
+    }
+  });
+}
+
+// Ação de Login no Supabase Auth
+async function handleLogin(e) {
+  e.preventDefault();
+  const errorEl = document.getElementById("js-login-error");
+  const loginBtn = document.getElementById("js-btn-login");
+  
+  errorEl.style.display = "none";
+  loginBtn.disabled = true;
+  loginBtn.querySelector("span").textContent = "Entrando...";
+
+  const email = document.getElementById("login-email").value;
+  const password = document.getElementById("login-password").value;
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error_description || data.error || "Erro ao fazer login.");
+    }
+
+    state.token = data.access_token;
+    state.user = data.user;
+    
+    // Salvar token temporário na sessão
+    sessionStorage.setItem("admin_token", state.token);
+    sessionStorage.setItem("admin_user", JSON.stringify(state.user));
+
+    // Buscar Perfil do Usuário na tabela public.profiles
+    await fetchUserProfile(data.user.id);
+    
+    showToast(`Bem-vindo, ${state.profile ? state.profile.name : state.user.email}!`, "success");
+    showAdminPanel();
+
+  } catch (err) {
+    console.error("Erro no login:", err);
+    errorEl.textContent = err.message || "Erro de conexão. Verifique os dados.";
+    errorEl.style.display = "block";
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.querySelector("span").textContent = "Entrar no Painel";
+  }
+}
+
+// Buscar o perfil do usuário na tabela public.profiles
+async function fetchUserProfile(userId) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${state.token}`
+      }
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.length > 0) {
+        state.profile = data[0];
+        sessionStorage.setItem("admin_profile", JSON.stringify(state.profile));
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao obter perfil de usuário:", err);
+  }
+}
+
+// Exibe o painel administrativo e oculta o login
+function showAdminPanel() {
+  document.getElementById("js-login-wrapper").style.display = "none";
+  document.getElementById("js-admin-container").style.display = "flex";
+  
+  // Atualizar Info do Usuário no Rodapé da Sidebar
+  const avatarEl = document.getElementById("js-user-avatar");
+  const emailEl = document.getElementById("js-user-email");
+  const roleEl = document.getElementById("js-user-role");
+
+  if (state.profile) {
+    emailEl.textContent = state.profile.email;
+    roleEl.textContent = state.profile.role;
+    avatarEl.textContent = state.profile.name ? state.profile.name.substring(0, 2).toUpperCase() : "AD";
+  } else if (state.user) {
+    emailEl.textContent = state.user.email;
+    roleEl.textContent = "Administrador";
+    avatarEl.textContent = state.user.email.substring(0, 2).toUpperCase();
+  }
+
+  // Carregar dados iniciais das tabelas
+  switchTab("dashboard");
+}
+
+function clearSession() {
+  state.token = null;
+  state.user = null;
+  state.profile = null;
+  sessionStorage.clear();
+  localStorage.clear();
+}
+
+// ==========================================
+// CONTROLE DE NAVEGAÇÃO DE ABAS
+// ==========================================
+function switchTab(tabId) {
+  state.activeTab = tabId;
+
+  // Atualizar botões da sidebar
+  document.querySelectorAll("[data-tab-trigger]").forEach(btn => {
+    if (btn.getAttribute("data-tab-trigger") === tabId) {
+      btn.classList.add("is-active");
+    } else {
+      btn.classList.remove("is-active");
+    }
+  });
+
+  // Atualizar visualização do container
+  document.querySelectorAll(".tab-content").forEach(content => {
+    if (content.id === `tab-${tabId}`) {
+      content.classList.add("is-active");
+    } else {
+      content.classList.remove("is-active");
+    }
+  });
+
+  // Atualizar cabeçalho da página
+  const titles = {
+    dashboard: "Dashboard geral",
+    leads: "Gerenciamento de Leads",
+    messages: "Mensagens Recebidas",
+    quiz: "Análise de Respostas do Quiz",
+    settings: "Configurações e Controle de Acesso"
+  };
+  document.getElementById("js-page-title").textContent = titles[tabId] || "Painel";
+
+  // Exibir/ocultar botão de exportar
+  const exportBtn = document.getElementById("js-btn-export");
+  if (tabId === "leads" || tabId === "quiz") {
+    exportBtn.style.display = "inline-flex";
+    exportBtn.querySelector("span").textContent = tabId === "leads" ? "Exportar Leads" : "Exportar Resultados";
+  } else {
+    exportBtn.style.display = "none";
+  }
+
+  // Buscar dados específicos se a lista estiver vazia ou forçar atualização
+  fetchAllData();
+}
+
+// ==========================================
+// CONSULTAS DE DADOS (SUPABASE REST API)
+// ==========================================
+async function fetchAllData(forceRefresh = false) {
+  if (!state.token) return;
+
+  const refreshBtn = document.getElementById("js-btn-refresh");
+  if (refreshBtn) refreshBtn.classList.add("spinning");
+
+  try {
+    const headers = {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${state.token}`,
+      "Content-Type": "application/json"
+    };
+
+    // Fazer requisições em paralelo para desempenho premium
+    const [leadsRes, messagesRes, quizRes, profilesRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/leads?order=created_at.desc`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/messages?order=created_at.desc`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/quiz_responses?order=created_at.desc`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/profiles?order=name.asc`, { headers })
+    ]);
+
+    if (leadsRes.ok) state.leads = await leadsRes.json();
+    if (messagesRes.ok) state.messages = await messagesRes.json();
+    if (quizRes.ok) state.quizResponses = await quizRes.json();
+    if (profilesRes.ok) state.users = await profilesRes.json();
+
+    // Atualizar as views correspondentes
+    renderAll();
+    
+    if (forceRefresh) {
+      showToast("Dados atualizados com sucesso.", "success");
+    }
+
+  } catch (err) {
+    console.error("Erro ao buscar dados do Supabase:", err);
+    showToast("Erro ao sincronizar dados com o servidor.", "error");
+  } finally {
+    if (refreshBtn) {
+      setTimeout(() => refreshBtn.classList.remove("spinning"), 300);
+    }
+  }
+}
+
+// Renderiza todas as abas e atualiza métricas
+function renderAll() {
+  // 1. Atualizar KPIs do Dashboard
+  updateDashboardKPIs();
+  
+  // 2. Renderizar abas dependendo do estado
+  renderRecentLeads();
+  renderLeadsTable();
+  renderMessagesList();
+  renderQuizAnalytics();
+  renderUsersTable();
+}
+
+// ==========================================
+// RENDER: DASHBOARD VIEW
+// ==========================================
+function updateDashboardKPIs() {
+  const totalLeads = state.leads.length;
+  const pendingLeads = state.leads.filter(l => l.status === "pending").length;
+  const contactedLeads = state.leads.filter(l => l.status === "contacted").length;
+  const subscribedLeads = state.leads.filter(l => l.status === "subscribed").length;
+
+  document.getElementById("kpi-leads-total").textContent = totalLeads;
+  document.getElementById("sub-leads-pending").textContent = `${pendingLeads} Pendente`;
+  document.getElementById("sub-leads-contacted").textContent = `${contactedLeads} Contatado`;
+  document.getElementById("sub-leads-subscribed").textContent = `${subscribedLeads} Inscrito`;
+
+  document.getElementById("kpi-messages-total").textContent = state.messages.length;
+  document.getElementById("kpi-quiz-total").textContent = state.quizResponses.length;
+
+  // Calcular média de acerto do quiz
+  let avgPercent = 0;
+  if (state.quizResponses.length > 0) {
+    const totalScore = state.quizResponses.reduce((acc, q) => acc + q.score, 0);
+    const totalQuestions = state.quizResponses.reduce((acc, q) => acc + q.total_questions, 0);
+    avgPercent = totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0;
+  }
+
+  document.getElementById("sub-quiz-avg-score").textContent = `Média de ${avgPercent}% acertos`;
+
+  // Atualizar visualização do gráfico circular do Dashboard
+  const circleProgress = document.getElementById("js-dash-circle-progress");
+  const circleText = document.getElementById("js-dash-circle-text");
+  
+  if (circleProgress && circleText) {
+    circleText.textContent = `${avgPercent}%`;
+    // Raio do círculo = 58, Circunferência = 2 * PI * r = 364.42
+    const circumference = 364.4;
+    const strokeOffset = circumference - (circumference * avgPercent) / 100;
+    circleProgress.style.strokeDashoffset = strokeOffset;
+  }
+}
+
+function renderRecentLeads() {
+  const tbody = document.getElementById("dashboard-recent-leads-tbody");
+  if (!tbody) return;
+
+  const recents = state.leads.slice(0, 5);
+  
+  if (recents.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sem leads registrados.</td></tr>`;
+    return;
+  }
+
+  const statusBadges = {
+    pending: '<span class="badge orange">Pendente</span>',
+    contacted: '<span class="badge blue">Contatado</span>',
+    subscribed: '<span class="badge green">Inscrito</span>'
+  };
+
+  tbody.innerHTML = recents.map(lead => `
+    <tr>
+      <td style="font-weight: 700;">${escapeHTML(lead.name || "Sem Nome")}</td>
+      <td>${escapeHTML(lead.email)}</td>
+      <td>${statusBadges[lead.status] || lead.status}</td>
+    </tr>
+  `).join("");
+}
+
+// ==========================================
+// RENDER: LEADS TABLE
+// ==========================================
+function renderLeadsTable() {
+  const tbody = document.getElementById("leads-tbody");
+  if (!tbody) return;
+
+  const searchQuery = document.getElementById("leads-search").value.toLowerCase().trim();
+  const statusFilter = document.getElementById("leads-status-filter").value;
+
+  // Filtrar
+  const filtered = state.leads.filter(lead => {
+    const matchesSearch = 
+      (lead.name && lead.name.toLowerCase().includes(searchQuery)) ||
+      (lead.email && lead.email.toLowerCase().includes(searchQuery)) ||
+      (lead.phone && lead.phone.includes(searchQuery));
+      
+    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty-state">
+          <div class="empty-state-icon">🔍</div>
+          <p class="empty-state-title">Nenhum Lead Encontrado</p>
+          <p class="empty-state-desc">Refine sua pesquisa ou filtro de status.</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(lead => {
+    const formattedDate = new Date(lead.created_at).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    return `
+      <tr data-lead-id="${lead.id}">
+        <td style="font-weight: 700;">${escapeHTML(lead.name || "Sem Nome")}</td>
+        <td>${escapeHTML(lead.email)}</td>
+        <td>${escapeHTML(lead.phone || "Não Informado")}</td>
+        <td>${formattedDate}</td>
+        <td>
+          <select class="table-select" onchange="updateLeadStatus('${lead.id}', this.value)">
+            <option value="pending" ${lead.status === "pending" ? "selected" : ""}>Pendente</option>
+            <option value="contacted" ${lead.status === "contacted" ? "selected" : ""}>Contatado</option>
+            <option value="subscribed" ${lead.status === "subscribed" ? "selected" : ""}>Inscrito</option>
+          </select>
+        </td>
+        <td>
+          <div class="action-buttons">
+            <a href="mailto:${lead.email}?subject=Corações Puros - Livro" class="btn-icon blue" title="Enviar E-mail">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            </a>
+            <button class="btn-icon red" title="Excluir Lead" onclick="confirmDeleteLead('${lead.id}', '${escapeHTML(lead.email)}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+// Ação de Atualização de Status Inline
+async function updateLeadStatus(leadId, newStatus) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`, {
+      method: "PATCH",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${state.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ status: newStatus })
+    });
+
+    if (res.ok) {
+      showToast("Status atualizado com sucesso.", "success");
+      // Atualizar no estado local
+      const idx = state.leads.findIndex(l => l.id === leadId);
+      if (idx !== -1) {
+        state.leads[idx].status = newStatus;
+        updateDashboardKPIs();
+        renderRecentLeads();
+      }
+    } else {
+      throw new Error("Erro na resposta da API.");
+    }
+  } catch (err) {
+    console.error("Erro ao atualizar status:", err);
+    showToast("Não foi possível atualizar o status do lead.", "error");
+    // Recarregar tabela para desfazer mudança visual incorreta
+    renderLeadsTable();
+  }
+}
+
+// Excluir Lead
+function confirmDeleteLead(leadId, email) {
+  showConfirmModal(
+    "Excluir Lead",
+    `Deseja realmente remover o lead "${email}" permanentemente?`,
+    async () => {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`, {
+          method: "DELETE",
+          headers: {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${state.token}`
+          }
+        });
+
+        if (res.ok) {
+          showToast("Lead removido com sucesso.", "success");
+          state.leads = state.leads.filter(l => l.id !== leadId);
+          renderAll();
+        } else {
+          throw new Error("Erro ao excluir.");
+        }
+      } catch (err) {
+        console.error("Erro ao excluir lead:", err);
+        showToast("Não foi possível excluir o lead.", "error");
+      }
+    }
+  );
+}
+
+// ==========================================
+// RENDER: MESSAGES VIEW
+// ==========================================
+function renderMessagesList() {
+  const container = document.getElementById("messages-list-container");
+  if (!container) return;
+
+  const searchQuery = document.getElementById("messages-search").value.toLowerCase().trim();
+
+  // Filtrar
+  const filtered = state.messages.filter(msg => {
+    return (
+      msg.name.toLowerCase().includes(searchQuery) ||
+      msg.email.toLowerCase().includes(searchQuery) ||
+      msg.message.toLowerCase().includes(searchQuery)
+    );
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <p class="empty-state-title">Nenhuma Mensagem Encontrada</p>
+        <p class="empty-state-desc">Refine o termo de pesquisa.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(msg => {
+    const formattedDate = new Date(msg.created_at).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    const initial = msg.name.substring(0, 1).toUpperCase();
+
+    return `
+      <div class="message-card" id="message-card-${msg.id}">
+        <div class="message-card-header">
+          <div class="message-sender">
+            <div class="message-avatar">${initial}</div>
+            <div>
+              <p class="message-sender-name">${escapeHTML(msg.name)}</p>
+              <p class="message-sender-email">${escapeHTML(msg.email)}</p>
+            </div>
+          </div>
+          <div class="message-date">${formattedDate}</div>
+        </div>
+        <div class="message-body">${escapeHTML(msg.message)}</div>
+        <div class="message-actions">
+          <a href="mailto:${msg.email}?subject=Contato Corações Puros&body=Olá ${escapeHTML(msg.name)},%0D%0A%0D%0A" class="btn" style="width: auto; height: 36px; padding: 0 14px; font-size: 13px; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            <span>Responder por E-mail</span>
+          </a>
+          <button class="btn-icon red" title="Excluir Mensagem" style="height: 36px; width: 36px;" onclick="confirmDeleteMessage('${msg.id}', '${escapeHTML(msg.name)}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// Excluir Mensagem
+function confirmDeleteMessage(msgId, senderName) {
+  showConfirmModal(
+    "Excluir Mensagem",
+    `Deseja realmente remover permanentemente a mensagem de "${senderName}"?`,
+    async () => {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/messages?id=eq.${msgId}`, {
+          method: "DELETE",
+          headers: {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${state.token}`
+          }
+        });
+
+        if (res.ok) {
+          showToast("Mensagem removida com sucesso.", "success");
+          state.messages = state.messages.filter(m => m.id !== msgId);
+          renderAll();
+        } else {
+          throw new Error("Erro ao excluir.");
+        }
+      } catch (err) {
+        console.error("Erro ao excluir mensagem:", err);
+        showToast("Não foi possível excluir a mensagem.", "error");
+      }
+    }
+  );
+}
+
+// ==========================================
+// RENDER: QUIZ ANALYTICS VIEW
+// ==========================================
+function renderQuizAnalytics() {
+  const container = document.getElementById("js-quiz-questions-stats");
+  if (!container) return;
+
+  const totalResponses = state.quizResponses.length;
+  
+  // Atualizar displays principais de pontuação
+  let avgPercent = 0;
+  if (totalResponses > 0) {
+    const totalScore = state.quizResponses.reduce((acc, q) => acc + q.score, 0);
+    const totalQuestions = state.quizResponses.reduce((acc, q) => acc + q.total_questions, 0);
+    avgPercent = totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0;
+  }
+
+  document.getElementById("quiz-panel-avg-text").textContent = `${avgPercent}%`;
+  document.getElementById("quiz-panel-total-text").textContent = totalResponses;
+
+  if (totalResponses === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📊</div>
+        <p class="empty-state-title">Sem Estatísticas</p>
+        <p class="empty-state-desc">Aguardando a primeira conclusão do quiz educativo para processar acertos.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Agregar acertos por pergunta
+  const questionStats = quizQuestions.map((q, idx) => {
+    return {
+      index: idx + 1,
+      question: q.question,
+      correctText: q.answer,
+      totalCount: 0,
+      correctCount: 0
+    };
+  });
+
+  // Iterar pelas respostas salvas
+  state.quizResponses.forEach(res => {
+    // res.answers é uma array de objetos formatados no quiz
+    if (res.answers && Array.isArray(res.answers)) {
+      res.answers.forEach(ans => {
+        // Encontrar correspondência de pergunta
+        const match = questionStats.find(stat => stat.question === ans.question);
+        if (match) {
+          match.totalCount++;
+          if (ans.isCorrect) {
+            match.correctCount++;
+          }
+        }
+      });
+    }
+  });
+
+  // Renderizar a lista de métricas por pergunta com barra de progressão
+  container.innerHTML = questionStats.map(stat => {
+    const accuracy = stat.totalCount > 0 ? Math.round((stat.correctCount / stat.totalCount) * 100) : 0;
+    
+    return `
+      <div class="quiz-stat-row">
+        <div class="quiz-stat-header">
+          <p class="quiz-stat-title">
+            <span style="color: var(--accent-orange); font-weight: 900; margin-right: 6px;">P${stat.index}.</span>
+            ${escapeHTML(stat.question)}
+          </p>
+          <span class="quiz-stat-meta">${accuracy}% de Acerto</span>
+        </div>
+        <div class="quiz-stat-bar-container">
+          <div class="quiz-stat-bar" style="width: ${accuracy}%;"></div>
+        </div>
+        <div class="quiz-stat-legend">
+          <span>Acertos: <strong>${stat.correctCount}</strong> de <strong>${stat.totalCount}</strong> respostas</span>
+          <span style="color: var(--accent-green);">Correto: "${escapeHTML(stat.correctText)}"</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ==========================================
+// EXPORTAÇÃO DE CSV
+// ==========================================
+function handleExportCSV() {
+  if (state.activeTab === "leads") {
+    if (state.leads.length === 0) {
+      showToast("Não há leads para exportar.", "error");
+      return;
+    }
+
+    const headers = ["ID", "Nome", "E-mail", "Telefone", "Status", "Data de Cadastro"];
+    const rows = state.leads.map(l => [
+      l.id,
+      l.name || "Sem Nome",
+      l.email,
+      l.phone || "",
+      l.status,
+      l.created_at
+    ]);
+
+    downloadCSV(headers, rows, "leads_coracoes_puros.csv");
+  } else if (state.activeTab === "quiz") {
+    if (state.quizResponses.length === 0) {
+      showToast("Não há respostas de quiz para exportar.", "error");
+      return;
+    }
+
+    const headers = ["Resposta ID", "Pontuação", "Total Perguntas", "Porcentagem", "Data de Envio"];
+    const rows = state.quizResponses.map(r => {
+      const pct = Math.round((r.score / r.total_questions) * 100);
+      return [
+        r.id,
+        r.score,
+        r.total_questions,
+        `${pct}%`,
+        r.created_at
+      ];
+    });
+
+    downloadCSV(headers, rows, "respostas_quiz_coracoes_puros.csv");
+  }
+}
+
+function downloadCSV(headers, rows, filename) {
+  // Converter para CSV string respeitando separador de colunas padrão (ponto e vírgula para PT-BR Excel)
+  const csvContent = "\uFEFF" + [
+    headers.map(h => `"${h.replace(/"/g, '""')}"`).join(";"),
+    ...rows.map(row => row.map(val => {
+      const cellText = String(val === null || val === undefined ? "" : val);
+      return `"${cellText.replace(/"/g, '""')}"`;
+    }).join(";"))
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast("CSV exportado e baixado.", "success");
+}
+
+// ==========================================
+// TOAST NOTIFICATIONS & CONFIRM DIALOGS
+// ==========================================
+function showToast(message, type = "info") {
+  const container = document.getElementById("js-toast-container");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+    error: `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`,
+    info: `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`
+  };
+
+  toast.innerHTML = `
+    ${icons[type] || icons.info}
+    <span>${escapeHTML(message)}</span>
+  `;
+
+  container.appendChild(toast);
+
+  // Trigger animado para deslizar para dentro
+  setTimeout(() => {
+    toast.classList.add("is-active");
+  }, 50);
+
+  // Remover depois de 3.5 segundos
+  setTimeout(() => {
+    toast.classList.remove("is-active");
+    setTimeout(() => {
+      container.removeChild(toast);
+    }, 300); // tempo de transição css
+  }, 3500);
+}
+
+// Controle de Modal Confirmar Exclusão
+function showConfirmModal(title, desc, onConfirm) {
+  const modal = document.getElementById("js-confirm-modal");
+  document.getElementById("confirm-modal-title").textContent = title;
+  document.getElementById("confirm-modal-desc").textContent = desc;
+  
+  state.currentModalCallback = onConfirm;
+  modal.classList.add("is-active");
+}
+
+function closeConfirmModal() {
+  const modal = document.getElementById("js-confirm-modal");
+  modal.classList.remove("is-active");
+  state.currentModalCallback = null;
+}
+
+// Auxiliares de Segurança
+function escapeHTML(str) {
+  return str.replace(/[&<>'"]/g, 
+    tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag)
+  );
+}
+
+// ==========================================
+// RENDER & CONTROLES: ABA CONFIGURAÇÕES
+// ==========================================
+function renderUsersTable() {
+  const tbody = document.getElementById("users-tbody");
+  if (!tbody) return;
+
+  const searchQuery = document.getElementById("users-search").value.toLowerCase().trim();
+  const isAdmin = state.profile && state.profile.role === "Admin_Lider";
+
+  // Filtrar
+  const filtered = state.users.filter(user => {
+    return (
+      (user.name && user.name.toLowerCase().includes(searchQuery)) ||
+      (user.email && user.email.toLowerCase().includes(searchQuery)) ||
+      (user.role && user.role.toLowerCase().includes(searchQuery))
+    );
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="empty-state">Nenhum usuário encontrado.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(user => {
+    const isSelf = state.user && state.user.email === user.email;
+    const disabledAttr = (!isAdmin || isSelf) ? "disabled" : "";
+    
+    // Se o usuário não for Admin_Lider, os selects de cargo ficam inativos
+    const actionsHtml = (isAdmin && !isSelf) ? `
+      <button class="btn-icon red" title="Excluir Usuário" onclick="confirmDeleteUser('${user.id}', '${escapeHTML(user.name || "Sem Nome")}', '${escapeHTML(user.email)}')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </button>
+    ` : `<span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">${isSelf ? "Sua Conta" : "Restrito"}</span>`;
+
+    return `
+      <tr data-user-id="${user.id}">
+        <td style="font-weight: 700;">${escapeHTML(user.name || "Sem Nome")} ${isSelf ? '<span style="color: var(--accent-blue-hover); font-size: 11px;">(Você)</span>' : ""}</td>
+        <td>${escapeHTML(user.email)}</td>
+        <td>
+          <select class="table-select" ${disabledAttr} onchange="updateUserRole('${user.id}', this.value)" style="min-width: 140px;">
+            <option value="Assessoria" ${user.role === "Assessoria" ? "selected" : ""}>Assessoria</option>
+            <option value="Admin_Lider" ${user.role === "Admin_Lider" ? "selected" : ""}>Admin Líder</option>
+            <option value="Regional" ${user.role === "Regional" ? "selected" : ""}>Regional</option>
+            <option value="Aguardando Aprovação" ${user.role === "Aguardando Aprovação" ? "selected" : ""}>Aprovação Pendente</option>
+          </select>
+        </td>
+        <td>
+          <div class="action-buttons">
+            ${actionsHtml}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  // Desativar inputs de criação de usuário se não for Admin_Lider
+  const signupInputs = document.querySelectorAll("#js-signup-form input, #js-signup-form select, #js-signup-form button");
+  if (!isAdmin) {
+    signupInputs.forEach(el => el.disabled = true);
+    // Adicionar um aviso sutil de permissão
+    const form = document.getElementById("js-signup-form");
+    let notice = document.getElementById("js-admin-notice");
+    if (!notice) {
+      notice = document.createElement("p");
+      notice.id = "js-admin-notice";
+      notice.style.color = "var(--accent-orange)";
+      notice.style.fontSize = "13px";
+      notice.style.marginTop = "16px";
+      notice.style.fontWeight = "600";
+      notice.textContent = "⚠️ Apenas administradores com cargo 'Admin Líder' podem criar ou gerenciar usuários.";
+      form.appendChild(notice);
+    }
+  } else {
+    signupInputs.forEach(el => el.disabled = false);
+    const notice = document.getElementById("js-admin-notice");
+    if (notice) notice.remove();
+  }
+}
+
+// Alteração de Permissões de Usuários
+async function updateUserRole(userId, newRole) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+      method: "PATCH",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${state.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ role: newRole })
+    });
+
+    if (res.ok) {
+      showToast("Nível de acesso do usuário atualizado com sucesso.", "success");
+      // Atualizar localmente
+      const idx = state.users.findIndex(u => u.id === userId);
+      if (idx !== -1) {
+        state.users[idx].role = newRole;
+      }
+    } else {
+      throw new Error("Erro na resposta da API.");
+    }
+  } catch (err) {
+    console.error("Erro ao atualizar cargo de usuário:", err);
+    showToast("Não foi possível atualizar o acesso.", "error");
+    renderUsersTable();
+  }
+}
+
+// Confirmação para Remover Perfil
+function confirmDeleteUser(userId, name, email) {
+  showConfirmModal(
+    "Remover Acesso do Usuário",
+    `Deseja realmente remover o perfil administrativo de "${name}" (${email})? Ele perderá todos os acessos imediatamente.`,
+    async () => {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+          method: "DELETE",
+          headers: {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${state.token}`
+          }
+        });
+
+        if (res.ok) {
+          showToast("Acesso do usuário revogado com sucesso.", "success");
+          state.users = state.users.filter(u => u.id !== userId);
+          renderUsersTable();
+        } else {
+          throw new Error("Erro ao excluir.");
+        }
+      } catch (err) {
+        console.error("Erro ao remover usuário:", err);
+        showToast("Não foi possível remover o acesso.", "error");
+      }
+    }
+  );
+}
+
+// Ação de Cadastro de Novo Usuário (Supabase Auth SignUp sem deslogar admin)
+async function handleSignUp(e) {
+  e.preventDefault();
+  
+  const name = document.getElementById("signup-name").value;
+  const email = document.getElementById("signup-email").value;
+  const password = document.getElementById("signup-password").value;
+  const role = document.getElementById("signup-role").value;
+  
+  const submitBtn = document.getElementById("js-btn-signup");
+  submitBtn.disabled = true;
+  submitBtn.querySelector("span").textContent = "Cadastrando...";
+  
+  try {
+    // 1. Cadastrar usuário no auth.users do Supabase
+    // Fazemos um fetch direto de cadastro que gera a conta, mas sem atualizar nosso sessionToken de admin
+    const signUpRes = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, password })
+    });
+    
+    const signUpData = await signUpRes.json();
+    
+    if (!signUpRes.ok) {
+      // Caso o usuário já exista na autenticação auth.users
+      if (signUpData.message && signUpData.message.includes("already registered")) {
+        showToast("Usuário já registrado no Auth. Tentando associar perfil...", "info");
+        
+        // Chamar o RPC de restauração/criação de perfil para usuários existentes
+        const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_restore_user_profile`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${state.token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user_email: email,
+            user_name: name
+          })
+        });
+        
+        const rpcData = await rpcRes.json();
+        
+        if (rpcRes.ok && rpcData === true) {
+          // Atualizar o cargo do perfil existente para o cargo selecionado pelo administrador
+          // O RPC cria por padrão como 'Regional', então aplicamos a atualização necessária
+          const usersRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?email=eq.${email}`, {
+            headers: {
+              "apikey": SUPABASE_ANON_KEY,
+              "Authorization": `Bearer ${state.token}`
+            }
+          });
+          const profilesFound = await usersRes.json();
+          if (profilesFound && profilesFound.length > 0) {
+            await updateUserRole(profilesFound[0].id, role);
+          }
+          
+          showToast("Perfil de usuário existente ativado com sucesso!", "success");
+          document.getElementById("js-signup-form").reset();
+          fetchAllData();
+          return;
+        } else {
+          throw new Error("Usuário já existe e não foi possível restaurar seu perfil.");
+        }
+      }
+      throw new Error(signUpData.message || "Falha na criação do usuário.");
+    }
+    
+    // 2. Criar perfil na tabela public.profiles
+    const resProfile = await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${state.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        id: signUpData.id,
+        email: signUpData.email,
+        name: name,
+        role: role
+      })
+    });
+    
+    if (resProfile.ok) {
+      showToast(`Usuário ${name} cadastrado com sucesso!`, "success");
+      document.getElementById("js-signup-form").reset();
+      
+      // Recarregar os perfis
+      fetchAllData();
+    } else {
+      const profileData = await resProfile.json();
+      throw new Error(profileData.message || "Erro ao gerar perfil de usuário.");
+    }
+    
+  } catch (err) {
+    console.error("Erro no cadastro:", err);
+    showToast(err.message || "Erro ao cadastrar usuário.", "error");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.querySelector("span").textContent = "Cadastrar Usuário";
+  }
+}

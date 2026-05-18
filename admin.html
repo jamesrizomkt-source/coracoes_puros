@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Painel Administrativo para gerenciamento do site Corações Puros de Alê Portela.">
+    <title>Painel Administrativo | Corações Puros</title>
+    <link rel="stylesheet" href="admin.css">
+  </head>
+  <body>
+    <!-- TOAST NOTIFICATIONS CONTAINER -->
+    <div class="toast-container" id="js-toast-container" aria-live="polite"></div>
+
+    <!-- ==========================================
+         STATE A: LOGIN PAGE (GLOW & GLASSMORPHISM)
+         ========================================== -->
+    <div class="login-wrapper" id="js-login-wrapper">
+      <div class="glow-circle glow-1" aria-hidden="true"></div>
+      <div class="glow-circle glow-2" aria-hidden="true"></div>
+
+      <div class="login-card">
+        <div class="login-header">
+          <div class="login-logo" aria-hidden="true">CP</div>
+          <h1 class="login-title">Corações Puros</h1>
+          <p class="login-subtitle">Acesse o Painel Administrativo</p>
+        </div>
+
+        <form id="js-login-form">
+          <div class="form-group">
+            <label class="form-label" for="login-email">E-mail Administrativo</label>
+            <input 
+              class="form-input" 
+              type="email" 
+              id="login-email" 
+              name="email" 
+              required 
+              placeholder="seuemail@exemplo.com" 
+              autocomplete="email"
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="login-password">Senha de Acesso</label>
+            <input 
+              class="form-input" 
+              type="password" 
+              id="login-password" 
+              name="password" 
+              required 
+              placeholder="••••••••" 
+              autocomplete="current-password"
+            >
+          </div>
+
+          <button class="btn btn-orange" type="submit" id="js-btn-login">
+            <span>Entrar no Painel</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px;">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+
+          <p class="login-error" id="js-login-error" role="alert"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         STATE B: ADMINISTRATIVE DASHBOARD
+         ========================================== -->
+    <div class="admin-container" id="js-admin-container" style="display: none;">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-logo" aria-hidden="true">CP</div>
+          <span class="sidebar-title">Corações Puros</span>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Menu principal">
+          <button class="nav-item is-active" type="button" data-tab-trigger="dashboard" id="tab-btn-dashboard">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>
+            <span>Dashboard</span>
+          </button>
+          
+          <button class="nav-item" type="button" data-tab-trigger="leads" id="tab-btn-leads">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>Leads Capturados</span>
+          </button>
+          
+          <button class="nav-item" type="button" data-tab-trigger="messages" id="tab-btn-messages">
+            <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            <span>Mensagens</span>
+          </button>
+          
+          <button class="nav-item" type="button" data-tab-trigger="quiz" id="tab-btn-quiz">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>Respostas Quiz</span>
+          </button>
+          
+          <button class="nav-item" type="button" data-tab-trigger="settings" id="tab-btn-settings">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Configurações</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="user-profile">
+            <div class="user-avatar" id="js-user-avatar">CP</div>
+            <div class="user-info">
+              <p class="user-name" id="js-user-email">admin@exemplo.com</p>
+              <p class="user-role" id="js-user-role">Administrador</p>
+            </div>
+          </div>
+          <button class="btn-logout" type="button" id="js-btn-logout">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <span>Sair do Painel</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- MAIN APP CONTAINER -->
+      <main class="main-content">
+        <!-- TOP STATUS BAR -->
+        <header class="top-bar">
+          <h2 class="page-title" id="js-page-title">Dashboard</h2>
+          
+          <div class="actions-bar">
+            <!-- EXPORT ACTION (DYNAMICALLY SHOWN ON LEADS/QUIZ TAB) -->
+            <button class="btn btn-action btn-orange" id="js-btn-export" style="display: none;" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: text-bottom;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Exportar CSV</span>
+            </button>
+            <button class="btn-icon" id="js-btn-refresh" title="Atualizar Dados" type="button">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </button>
+          </div>
+        </header>
+
+        <!-- ==========================================
+             TAB 1: DYNAMIC DASHBOARD OVERVIEW
+             ========================================== -->
+        <section class="tab-content is-active" id="tab-dashboard" aria-labelledby="tab-btn-dashboard">
+          <!-- QUICK STATS ROW -->
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Leads Capturados</span>
+                <div class="kpi-icon-wrapper orange" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+              </div>
+              <p class="kpi-value" id="kpi-leads-total">0</p>
+              <div class="kpi-desc">Total de e-mails inscritos</div>
+              <div class="kpi-sub-stats">
+                <div class="kpi-sub-item">
+                  <span class="kpi-bullet orange"></span>
+                  <span id="sub-leads-pending">0 Pendente</span>
+                </div>
+                <div class="kpi-sub-item">
+                  <span class="kpi-bullet blue"></span>
+                  <span id="sub-leads-contacted">0 Contatado</span>
+                </div>
+                <div class="kpi-sub-item">
+                  <span class="kpi-bullet green"></span>
+                  <span id="sub-leads-subscribed">0 Inscrito</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Mensagens Fale Conosco</span>
+                <div class="kpi-icon-wrapper blue" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                </div>
+              </div>
+              <p class="kpi-value" id="kpi-messages-total">0</p>
+              <div class="kpi-desc">Envios no formulário de contato</div>
+              <div class="kpi-sub-stats">
+                <div class="kpi-sub-item" style="color: var(--text-muted);">
+                  <span>Aguardando resposta do suporte</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Quizzes Respondidos</span>
+                <div class="kpi-icon-wrapper green" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                </div>
+              </div>
+              <p class="kpi-value" id="kpi-quiz-total">0</p>
+              <div class="kpi-desc">Testes de conhecimento efetuados</div>
+              <div class="kpi-sub-stats">
+                <div class="kpi-sub-item">
+                  <span class="kpi-bullet green"></span>
+                  <span id="sub-quiz-avg-score">Média de 0% acertos</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ANALYTICS PANEL & RECENT CONTEXT -->
+          <div class="dashboard-row">
+            <!-- RECENT LEADS -->
+            <div class="panel-card">
+              <div class="panel-header">
+                <h3 class="panel-title">Leads Recentes</h3>
+                <button class="btn-logout" style="width: auto; height: 32px; padding: 0 12px; font-size: 12px; color: var(--accent-blue-hover); border-color: rgba(0,136,255,0.2);" type="button" onclick="document.getElementById('tab-btn-leads').click()">
+                  Ver todos
+                </button>
+              </div>
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>E-mail</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashboard-recent-leads-tbody">
+                    <tr>
+                      <td colspan="3" class="empty-state">Carregando dados...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ANALYTICS OVERVIEW -->
+            <div class="panel-card">
+              <div class="panel-header">
+                <h3 class="panel-title">Distribuição de Acertos no Quiz</h3>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: calc(100% - 40px); min-height: 200px; text-align: center;">
+                <div style="position: relative; width: 140px; height: 140px; margin-bottom: 16px;">
+                  <svg width="140" height="140" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
+                    <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="12"></circle>
+                    <circle cx="70" cy="70" r="58" fill="none" stroke="url(#blue-orange-grad)" stroke-width="12" stroke-dasharray="364.4" stroke-dashoffset="364.4" id="js-dash-circle-progress" style="transition: stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1);"></circle>
+                    <defs>
+                      <linearGradient id="blue-orange-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="var(--accent-orange)" />
+                        <stop offset="100%" stop-color="var(--accent-blue)" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div style="position: absolute; inset: 0; display: grid; place-items: center; flex-direction: column;">
+                    <span style="font-size: 26px; font-weight: 800; color: var(--text-main); line-height: 1;" id="js-dash-circle-text">0%</span>
+                  </div>
+                </div>
+                <p style="font-size: 13px; color: var(--text-muted); max-width: 220px;">
+                  Média geral de compreensão nas perguntas educativas do livro.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==========================================
+             TAB 2: LEADS LIST WITH ACTIONS
+             ========================================== -->
+        <section class="tab-content" id="tab-leads" aria-labelledby="tab-btn-leads">
+          <div class="table-controls">
+            <div class="search-wrapper">
+              <svg class="search-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input class="search-input" type="text" id="leads-search" placeholder="Pesquisar leads por nome ou email...">
+            </div>
+            
+            <div class="filter-group">
+              <label for="leads-status-filter" style="font-size: 13px; color: var(--text-muted); font-weight: 700;">Filtrar:</label>
+              <select class="select-filter" id="leads-status-filter">
+                <option value="all">Todos os Status</option>
+                <option value="pending">Pendente (Interessados)</option>
+                <option value="contacted">Contatados</option>
+                <option value="subscribed">Inscritos (Compradores)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="leads-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Telefone</th>
+                  <th>Cadastro</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="leads-tbody">
+                <tr>
+                  <td colspan="6" class="empty-state">
+                    <div class="empty-state-icon">📥</div>
+                    <p class="empty-state-title">Nenhum Lead Carregado</p>
+                    <p class="empty-state-desc">Pressione o botão de atualizar para buscar do banco.</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ==========================================
+             TAB 3: USER INCOMING MESSAGES
+             ========================================== -->
+        <section class="tab-content" id="tab-messages" aria-labelledby="tab-btn-messages">
+          <div class="table-controls" style="margin-bottom: 24px;">
+            <div class="search-wrapper">
+              <svg class="search-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input class="search-input" type="text" id="messages-search" placeholder="Pesquisar nas mensagens...">
+            </div>
+          </div>
+
+          <div id="messages-list-container">
+            <div class="empty-state">
+              <div class="empty-state-icon">✉️</div>
+              <p class="empty-state-title">Nenhuma Mensagem</p>
+              <p class="empty-state-desc">Nenhum contato foi feito através do formulário Fale Conosco.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==========================================
+             TAB 4: QUIZ ANALYSIS DETAILS
+             ========================================== -->
+        <section class="tab-content" id="tab-quiz" aria-labelledby="tab-btn-quiz">
+          <div class="dashboard-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 32px;">
+            <div class="panel-card" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+              <h3 class="eyebrow" style="margin-bottom: 8px;">Pontuação Média</h3>
+              <p class="kpi-value" id="quiz-panel-avg-text" style="font-size: 72px; color: var(--accent-orange);">0%</p>
+              <p style="color: var(--text-muted); font-size: 14px; max-width: 320px;">
+                Esta é a taxa média de acerto de todos os usuários que concluíram o quiz até o momento.
+              </p>
+            </div>
+
+            <div class="panel-card" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+              <h3 class="eyebrow" style="margin-bottom: 8px;">Participação no Quiz</h3>
+              <p class="kpi-value" id="quiz-panel-total-text" style="font-size: 72px; color: var(--accent-blue);">0</p>
+              <p style="color: var(--text-muted); font-size: 14px;">
+                Total de pessoas que concluíram o teste interativo de conhecimento.
+              </p>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-header" style="margin-bottom: 24px;">
+              <h3 class="panel-title">Desempenho Educativo por Pergunta</h3>
+            </div>
+            
+            <div class="quiz-list" id="js-quiz-questions-stats">
+              <!-- DYNAMICALLY POPULATED LIST OF QUESTIONS WITH ACCURACY METRIC -->
+              <p class="empty-state">Carregando métricas das respostas...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==========================================
+             TAB 5: CONFIGURAÇÕES E GERENCIAMENTO DE ACESSO
+             ========================================== -->
+        <section class="tab-content" id="tab-settings" aria-labelledby="tab-btn-settings">
+          <div class="dashboard-row" style="grid-template-columns: 1fr 1.5fr;">
+            
+            <!-- PAINEL DE CRIAÇÃO -->
+            <div class="panel-card">
+              <div class="panel-header" style="margin-bottom: 20px;">
+                <h3 class="panel-title">Criar Novo Usuário</h3>
+              </div>
+              
+              <form id="js-signup-form">
+                <div class="form-group">
+                  <label class="form-label" for="signup-name">Nome Completo</label>
+                  <input class="form-input" type="text" id="signup-name" required placeholder="Ex: João Silva">
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="signup-email">E-mail de Acesso</label>
+                  <input class="form-input" type="email" id="signup-email" required placeholder="joao@exemplo.com">
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="signup-password">Senha Provisória</label>
+                  <div class="input-with-actions" style="display: flex; gap: 8px; width: 100%;">
+                    <input class="form-input" type="password" id="signup-password" required minlength="6" placeholder="Mínimo 6 caracteres" style="flex-grow: 1;">
+                    <button class="btn-input-action" type="button" id="js-toggle-signup-password" title="Ver/Ocultar Senha">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                    <button class="btn-input-action" type="button" id="js-generate-signup-password" title="Gerar Nova Senha" style="color: var(--accent-orange);">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                    </button>
+                  </div>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="signup-role">Nível de Acesso (Cargo)</label>
+                  <select class="form-input" id="signup-role" required style="background: var(--bg-sidebar); color: var(--text-main); border: 1px solid var(--border-color); height: 48px; border-radius: var(--radius-sm); width: 100%; padding: 0 16px; font-size: 15px;">
+                    <option value="Assessoria">Assessoria (Acesso Geral)</option>
+                    <option value="Admin_Lider">Admin Líder (Acesso Total + Configurações)</option>
+                    <option value="Regional">Regional (Acesso Regional)</option>
+                    <option value="Aguardando Aprovação">Aguardando Aprovação (Bloqueado)</option>
+                  </select>
+                </div>
+                
+                <button class="btn btn-orange" type="submit" id="js-btn-signup" style="margin-top: 24px;">
+                  <span>Cadastrar Usuário</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px;">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <line x1="19" y1="8" x2="19" y2="14"></line>
+                    <line x1="16" y1="11" x2="22" y2="11"></line>
+                  </svg>
+                </button>
+              </form>
+            </div>
+
+            <!-- PAINEL DE CONTROLE DE ACESSO -->
+            <div class="panel-card">
+              <div class="panel-header" style="margin-bottom: 20px;">
+                <h3 class="panel-title">Controle de Acesso de Usuários</h3>
+              </div>
+              
+              <div class="table-controls" style="margin-bottom: 16px;">
+                <div class="search-wrapper">
+                  <svg class="search-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <input class="search-input" type="text" id="users-search" placeholder="Pesquisar usuários...">
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>E-mail</th>
+                      <th>Cargo / Nível</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="users-tbody">
+                    <tr>
+                      <td colspan="4" class="empty-state">Buscando perfis cadastrados...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ==========================================
+         CONFIRMATION DIALOG MODAL (ACCESSIBLE)
+         ========================================== -->
+    <div class="modal-backdrop" id="js-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <div class="modal-card">
+        <h3 class="modal-title" id="confirm-modal-title">Tem certeza que deseja continuar?</h3>
+        <p class="modal-desc" id="confirm-modal-desc">Esta ação é irreversível e removerá permanentemente o item selecionado do banco de dados.</p>
+        
+        <div class="modal-actions">
+          <button class="btn btn-logout" style="width: auto; height: 40px; padding: 0 18px; color: var(--text-muted); border-color: var(--border-color);" type="button" id="confirm-btn-cancel">
+            Cancelar
+          </button>
+          <button class="btn" style="width: auto; height: 40px; padding: 0 18px; background: var(--accent-red);" type="button" id="confirm-btn-proceed">
+            Excluir Registro
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="admin.js"></script>
+  </body>
+</html>
