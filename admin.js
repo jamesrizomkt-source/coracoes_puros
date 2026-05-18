@@ -43,7 +43,8 @@ const state = {
   messages: [],
   quizResponses: [],
   users: [],
-  currentModalCallback: null
+  currentModalCallback: null,
+  realtimeTimer: null
 };
 
 // ==========================================
@@ -292,9 +293,13 @@ function showAdminPanel() {
 
   // Carregar dados iniciais das tabelas
   switchTab("dashboard");
+  
+  // Iniciar sincronização automática em tempo real
+  startRealtimePolling();
 }
 
 function clearSession() {
+  stopRealtimePolling();
   state.token = null;
   state.user = null;
   state.profile = null;
@@ -353,11 +358,11 @@ function switchTab(tabId) {
 // ==========================================
 // CONSULTAS DE DADOS (SUPABASE REST API)
 // ==========================================
-async function fetchAllData(forceRefresh = false) {
+async function fetchAllData(forceRefresh = false, isBackground = false) {
   if (!state.token) return;
 
   const refreshBtn = document.getElementById("js-btn-refresh");
-  if (refreshBtn) refreshBtn.classList.add("spinning");
+  if (refreshBtn && !isBackground) refreshBtn.classList.add("spinning");
 
   try {
     const headers = {
@@ -388,11 +393,46 @@ async function fetchAllData(forceRefresh = false) {
 
   } catch (err) {
     console.error("Erro ao buscar dados do Supabase:", err);
-    showToast("Erro ao sincronizar dados com o servidor.", "error");
+    if (!isBackground) {
+      showToast("Erro ao sincronizar dados com o servidor.", "error");
+    }
   } finally {
-    if (refreshBtn) {
+    if (refreshBtn && !isBackground) {
       setTimeout(() => refreshBtn.classList.remove("spinning"), 300);
     }
+  }
+}
+
+// ==========================================
+// MONITORAMENTO EM TEMPO REAL (POLLING)
+// ==========================================
+function startRealtimePolling() {
+  if (state.realtimeTimer) clearInterval(state.realtimeTimer);
+  
+  // Atualizar o status badge para ativo
+  const badge = document.getElementById("js-realtime-status");
+  if (badge) {
+    badge.style.display = "inline-flex";
+  }
+
+  // Sincronização em background a cada 10 segundos
+  state.realtimeTimer = setInterval(() => {
+    // Só faz requisição se o painel estiver aberto e em foco
+    if (state.token && document.visibilityState === "visible") {
+      fetchAllData(false, true);
+    }
+  }, 10000);
+}
+
+function stopRealtimePolling() {
+  if (state.realtimeTimer) {
+    clearInterval(state.realtimeTimer);
+    state.realtimeTimer = null;
+  }
+  
+  const badge = document.getElementById("js-realtime-status");
+  if (badge) {
+    badge.style.display = "none";
   }
 }
 
@@ -485,6 +525,36 @@ function renderRecentOrders() {
 function renderOrdersTable() {
   const tbody = document.getElementById("orders-tbody");
   if (!tbody) return;
+
+  // Atualizar Mini KPIs de Pedidos para transparência
+  const total = state.orders.length;
+  const pending = state.orders.filter(o => o.status === "pending").length;
+  const paid = state.orders.filter(o => o.status === "paid").length;
+  const shipped = state.orders.filter(o => o.status === "shipped").length;
+
+  const pendingPct = total > 0 ? Math.round((pending / total) * 100) : 0;
+  const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
+  const shippedPct = total > 0 ? Math.round((shipped / total) * 100) : 0;
+
+  const elTotalVal = document.getElementById("order-kpi-value-total");
+  const elPendingVal = document.getElementById("order-kpi-value-pending");
+  const elPaidVal = document.getElementById("order-kpi-value-paid");
+  const elShippedVal = document.getElementById("order-kpi-value-shipped");
+
+  const elTotalBdg = document.getElementById("order-kpi-badge-total");
+  const elPendingBdg = document.getElementById("order-kpi-badge-pending");
+  const elPaidBdg = document.getElementById("order-kpi-badge-paid");
+  const elShippedBdg = document.getElementById("order-kpi-badge-shipped");
+
+  if (elTotalVal) elTotalVal.textContent = total;
+  if (elPendingVal) elPendingVal.textContent = pending;
+  if (elPaidVal) elPaidVal.textContent = paid;
+  if (elShippedVal) elShippedVal.textContent = shipped;
+
+  if (elTotalBdg) elTotalBdg.textContent = total;
+  if (elPendingBdg) elPendingBdg.textContent = `${pendingPct}%`;
+  if (elPaidBdg) elPaidBdg.textContent = `${paidPct}%`;
+  if (elShippedBdg) elShippedBdg.textContent = `${shippedPct}%`;
 
   const searchQuery = document.getElementById("orders-search").value.toLowerCase().trim();
   const statusFilter = document.getElementById("orders-status-filter").value;
