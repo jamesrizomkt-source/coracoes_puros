@@ -44,7 +44,8 @@ const state = {
   quizResponses: [],
   users: [],
   currentModalCallback: null,
-  realtimeTimer: null
+  realtimeTimer: null,
+  settings: {}
 };
 
 // ==========================================
@@ -148,6 +149,15 @@ function setupEventListeners() {
   // Binds para a aba Configurações
   const signupForm = document.getElementById("js-signup-form");
   if (signupForm) signupForm.addEventListener("submit", handleSignUp);
+
+  const globalSettingsForm = document.getElementById("js-global-settings-form");
+  if (globalSettingsForm) globalSettingsForm.addEventListener("submit", handleSaveGlobalSettings);
+
+  const notificationsSettingsForm = document.getElementById("js-notifications-settings-form");
+  if (notificationsSettingsForm) notificationsSettingsForm.addEventListener("submit", handleSaveNotificationSettings);
+
+  const triggerReportBtn = document.getElementById("js-btn-trigger-report");
+  if (triggerReportBtn) triggerReportBtn.addEventListener("click", handleTriggerDailyReportManual);
 
   const usersSearch = document.getElementById("users-search");
   if (usersSearch) usersSearch.addEventListener("input", renderUsersTable);
@@ -351,8 +361,38 @@ function switchTab(tabId) {
     exportBtn.style.display = "none";
   }
 
+  if (tabId === "settings") {
+    switchSubTab("global");
+  }
+
   // Buscar dados específicos se a lista estiver vazia ou forçar atualização
   fetchAllData();
+}
+
+function switchSubTab(subTabId) {
+  // Alterar botões ativos
+  document.querySelectorAll(".sub-tab-btn").forEach(btn => {
+    btn.classList.remove("is-active");
+    btn.style.color = "var(--text-muted)";
+    btn.style.fontWeight = "700";
+  });
+  
+  const activeBtn = document.getElementById(`sub-tab-btn-${subTabId}`);
+  if (activeBtn) {
+    activeBtn.classList.add("is-active");
+    activeBtn.style.color = "var(--text-main)";
+    activeBtn.style.fontWeight = "800";
+  }
+
+  // Alterar conteúdos ativos
+  document.querySelectorAll(".sub-tab-content").forEach(content => {
+    content.style.display = "none";
+  });
+  
+  const activeContent = document.getElementById(`sub-tab-${subTabId}-content`);
+  if (activeContent) {
+    activeContent.style.display = subTabId === "global" ? "block" : "grid";
+  }
 }
 
 // ==========================================
@@ -372,17 +412,28 @@ async function fetchAllData(forceRefresh = false, isBackground = false) {
     };
 
     // Fazer requisições em paralelo para desempenho premium
-    const [ordersRes, messagesRes, quizRes, profilesRes] = await Promise.all([
+    const [ordersRes, messagesRes, quizRes, profilesRes, settingsRes] = await Promise.all([
       fetch(`${SUPABASE_URL}/rest/v1/orders?order=created_at.desc`, { headers }),
       fetch(`${SUPABASE_URL}/rest/v1/messages?order=created_at.desc`, { headers }),
       fetch(`${SUPABASE_URL}/rest/v1/quiz_responses?order=created_at.desc`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/profiles?order=name.asc`, { headers })
+      fetch(`${SUPABASE_URL}/rest/v1/profiles?order=name.asc`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/settings`, { headers })
     ]);
 
     if (ordersRes.ok) state.orders = await ordersRes.json();
     if (messagesRes.ok) state.messages = await messagesRes.json();
     if (quizRes.ok) state.quizResponses = await quizRes.json();
     if (profilesRes.ok) state.users = await profilesRes.json();
+    
+    if (settingsRes.ok) {
+      const settingsArray = await settingsRes.json();
+      state.settings = {};
+      settingsArray.forEach(s => {
+        state.settings[s.key] = s.value;
+      });
+      // Popular os campos de input do form de Ajustes Globais
+      populateSettingsForm();
+    }
 
     // Atualizar as views correspondentes
     renderAll();
@@ -1251,5 +1302,191 @@ async function handleSignUp(e) {
   } finally {
     submitBtn.disabled = false;
     submitBtn.querySelector("span").textContent = "Cadastrar Usuário";
+  }
+}
+
+// ==========================================
+// CONFIGURAÇÕES GLOBAIS (AJUSTES E ALERTAS)
+// ==========================================
+
+// Preenche os campos do formulário de Ajustes Globais
+function populateSettingsForm() {
+  const priceInput = document.getElementById("setting-book-price");
+  const pixInput = document.getElementById("setting-pix-key");
+  const linkInput = document.getElementById("setting-payment-link");
+  const emailInput = document.getElementById("setting-admin-email");
+  const notifInput = document.getElementById("setting-notifications-enabled");
+
+  if (priceInput && state.settings.book_price !== undefined) {
+    priceInput.value = state.settings.book_price;
+  }
+  if (pixInput && state.settings.pix_key !== undefined) {
+    pixInput.value = state.settings.pix_key;
+  }
+  if (linkInput && state.settings.payment_link !== undefined) {
+    linkInput.value = state.settings.payment_link;
+  }
+  if (emailInput && state.settings.admin_email !== undefined) {
+    emailInput.value = state.settings.admin_email;
+  }
+  if (notifInput && state.settings.notifications_enabled !== undefined) {
+    notifInput.checked = state.settings.notifications_enabled === "true";
+  }
+}
+
+// Salva uma única configuração global no Supabase REST
+async function saveGlobalSetting(key, value) {
+  try {
+    const headers = {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${state.token}`,
+      "Content-Type": "application/json",
+      "Prefer": "resolution=merge-duplicates"
+    };
+
+    // Fazer um PATCH para atualizar o valor da chave específica
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.${key}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ value, updated_at: new Date().toISOString() })
+    });
+
+    if (!res.ok) throw new Error("Erro na resposta REST do Supabase.");
+    
+    // Atualizar no estado local
+    state.settings[key] = value;
+    return true;
+  } catch (err) {
+    console.error(`Erro ao salvar configuração ${key}:`, err);
+    return false;
+  }
+}
+
+// Handler de envio dos Parâmetros de Venda
+async function handleSaveGlobalSettings(e) {
+  e.preventDefault();
+  
+  const submitBtn = document.getElementById("js-btn-save-settings");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.querySelector("span").textContent = "Salvando...";
+  }
+
+  const bookPrice = document.getElementById("setting-book-price").value.trim();
+  const pixKey = document.getElementById("setting-pix-key").value.trim();
+  const paymentLink = document.getElementById("setting-payment-link").value.trim();
+
+  try {
+    // Salvar todas as três configurações em paralelo
+    const [priceOk, pixOk, linkOk] = await Promise.all([
+      saveGlobalSetting("book_price", bookPrice),
+      saveGlobalSetting("pix_key", pixKey),
+      saveGlobalSetting("payment_link", paymentLink)
+    ]);
+
+    if (priceOk && pixOk && linkOk) {
+      showToast("Parâmetros de venda salvos com sucesso!", "success");
+    } else {
+      showToast("Alguns parâmetros não puderam ser salvos.", "error");
+    }
+  } catch (err) {
+    console.error("Erro ao salvar parâmetros globais:", err);
+    showToast("Erro ao tentar salvar configurações.", "error");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.querySelector("span").textContent = "Salvar Parâmetros";
+    }
+  }
+}
+
+// Handler de envio dos Parâmetros de Notificação e Alerta com suporte a múltiplos e-mails
+async function handleSaveNotificationSettings(e) {
+  e.preventDefault();
+  
+  const submitBtn = document.getElementById("js-btn-save-notif-settings");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.querySelector("span").textContent = "Salvando...";
+  }
+
+  const adminEmailRaw = document.getElementById("setting-admin-email").value.trim();
+  const notificationsEnabled = document.getElementById("setting-notifications-enabled").checked ? "true" : "false";
+
+  // Validar se todos os e-mails inseridos são válidos
+  const emailList = adminEmailRaw.split(",").map(email => email.trim()).filter(email => email.length > 0);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const allValid = emailList.every(email => emailRegex.test(email));
+
+  if (emailList.length === 0 || !allValid) {
+    showToast("Por favor, insira apenas e-mails válidos separados por vírgula.", "error");
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.querySelector("span").textContent = "Salvar Parâmetros de Alerta";
+    }
+    return;
+  }
+
+  try {
+    const cleanAdminEmailList = emailList.join(", ");
+    const [emailOk, notifOk] = await Promise.all([
+      saveGlobalSetting("admin_email", cleanAdminEmailList),
+      saveGlobalSetting("notifications_enabled", notificationsEnabled)
+    ]);
+
+    if (emailOk && notifOk) {
+      showToast("Configurações de alerta salvas com sucesso!", "success");
+      // Atualizar o input com a lista limpa e formatada
+      document.getElementById("setting-admin-email").value = cleanAdminEmailList;
+    } else {
+      showToast("Alguns parâmetros de alerta não foram salvos.", "error");
+    }
+  } catch (err) {
+    console.error("Erro ao salvar alertas:", err);
+    showToast("Erro ao tentar salvar configurações.", "error");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.querySelector("span").textContent = "Salvar Parâmetros de Alerta";
+    }
+  }
+}
+
+// Disparo Manual do Relatório Diário Consolidado
+async function handleTriggerDailyReportManual() {
+  const triggerBtn = document.getElementById("js-btn-trigger-report");
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+    triggerBtn.querySelector("span").textContent = "Enviando Relatório...";
+  }
+
+  try {
+    const requesterEmail = state.user?.email || "";
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-emails`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-supabase-webhook-secret": "CoracoesPurosSecretWebhook2026Token!!"
+      },
+      body: JSON.stringify({
+        action: "send_daily_report",
+        requester_email: requesterEmail
+      })
+    });
+
+    if (res.ok) {
+      showToast("Relatório diário enviado com sucesso para todos os gestores cadastrados!", "success");
+    } else {
+      const data = await res.json();
+      throw new Error(data.error || "Erro ao disparar relatório na nuvem.");
+    }
+  } catch (err) {
+    console.error("Erro ao disparar relatório consolidado:", err);
+    showToast(err.message || "Erro ao tentar disparar relatório consolidado.", "error");
+  } finally {
+    if (triggerBtn) {
+      triggerBtn.disabled = false;
+      triggerBtn.querySelector("span").textContent = "✉️ Testar/Enviar Relatório Diário Agora";
+    }
   }
 }
