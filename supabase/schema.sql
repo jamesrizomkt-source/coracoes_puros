@@ -121,3 +121,51 @@ create policy "Allow admin update" on public.orders
 
 create policy "Allow admin delete" on public.orders
     for delete using (auth.role() = 'authenticated');
+
+-- ==========================================
+-- 5. CONFIGURAÇÃO DE WEBHOOKS & ENVIOS DE E-MAILS (BREVO + SUPABASE EDGE FUNCTIONS)
+-- ==========================================
+
+-- Habilitar a extensão pg_net para fazer requisições HTTP a partir do banco de dados
+create extension if not exists pg_net with schema extensions;
+
+-- Criar a função plpgsql para enviar a requisição HTTP POST para a nossa Edge Function
+create or replace function public.trigger_send_emails_webhook()
+returns trigger as $$
+declare
+  payload jsonb;
+begin
+  -- Construir o JSON de payload com os dados novos e antigos
+  payload := jsonb_build_object(
+    'type', TG_OP,
+    'table', TG_TABLE_NAME,
+    'schema', TG_TABLE_SCHEMA,
+    'record', row_to_json(NEW),
+    'old_record', case when TG_OP = 'UPDATE' then row_to_json(OLD) else null end
+  );
+
+  -- Realizar a chamada HTTP assíncrona usando net.http_post
+  perform net.http_post(
+    url := 'https://idsqzkosgzoeratfzonx.supabase.co/functions/v1/send-emails',
+    headers := '{"Content-Type": "application/json", "x-supabase-webhook-secret": "CoracoesPurosSecretWebhook2026Token!!"}'::jsonb,
+    body := payload
+  );
+
+  return NEW;
+end;
+$$ language plpgsql security definer;
+
+-- Criar a trigger para a tabela public.orders
+drop trigger if exists tr_orders_send_emails on public.orders;
+create trigger tr_orders_send_emails
+after insert or update on public.orders
+for each row
+execute function public.trigger_send_emails_webhook();
+
+-- Criar a trigger para a tabela public.messages
+drop trigger if exists tr_messages_send_emails on public.messages;
+create trigger tr_messages_send_emails
+after insert on public.messages
+for each row
+execute function public.trigger_send_emails_webhook();
+
