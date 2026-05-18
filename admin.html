@@ -82,9 +82,9 @@
             <span>Dashboard</span>
           </button>
           
-          <button class="nav-item" type="button" data-tab-trigger="leads" id="tab-btn-leads">
-            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            <span>Leads Capturados</span>
+          <button class="nav-item" type="button" data-tab-trigger="orders" id="tab-btn-orders">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+            <span>Pedidos de Livros</span>
           </button>
           
           <button class="nav-item" type="button" data-tab-trigger="messages" id="tab-btn-messages">
@@ -144,28 +144,30 @@
           <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-header">
-                <span class="kpi-title">Leads Capturados</span>
-                <div class="kpi-icon-wrapper orange" aria-hidden="true">
-                  <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <span class="kpi-title">Pedidos de Livros</span>
+                <div class="kpi-icon-wrapper orange" aria-hidden="true" style="background: rgba(243, 154, 0, 0.1); color: var(--accent-orange);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
                 </div>
               </div>
-              <p class="kpi-value" id="kpi-leads-total">0</p>
-              <div class="kpi-desc">Total de e-mails inscritos</div>
+              <p class="kpi-value" id="kpi-orders-total">0</p>
+              <div class="kpi-desc">Total de pedidos efetuados</div>
               <div class="kpi-sub-stats">
                 <div class="kpi-sub-item">
                   <span class="kpi-bullet orange"></span>
-                  <span id="sub-leads-pending">0 Pendente</span>
-                </div>
-                <div class="kpi-sub-item">
-                  <span class="kpi-bullet blue"></span>
-                  <span id="sub-leads-contacted">0 Contatado</span>
+                  <span id="sub-orders-pending">0 Pendente</span>
                 </div>
                 <div class="kpi-sub-item">
                   <span class="kpi-bullet green"></span>
-                  <span id="sub-leads-subscribed">0 Inscrito</span>
+                  <span id="sub-orders-paid">0 Pago</span>
+                </div>
+                <div class="kpi-sub-item">
+                  <span class="kpi-bullet blue"></span>
+                  <span id="sub-orders-shipped">0 Enviado</span>
                 </div>
               </div>
             </div>
+
+
 
             <div class="kpi-card">
               <div class="kpi-header">
@@ -203,11 +205,11 @@
 
           <!-- ANALYTICS PANEL & RECENT CONTEXT -->
           <div class="dashboard-row">
-            <!-- RECENT LEADS -->
+            <!-- RECENT ORDERS -->
             <div class="panel-card">
               <div class="panel-header">
-                <h3 class="panel-title">Leads Recentes</h3>
-                <button class="btn-logout" style="width: auto; height: 32px; padding: 0 12px; font-size: 12px; color: var(--accent-blue-hover); border-color: rgba(0,136,255,0.2);" type="button" onclick="document.getElementById('tab-btn-leads').click()">
+                <h3 class="panel-title">Pedidos Recentes</h3>
+                <button class="btn-logout" style="width: auto; height: 32px; padding: 0 12px; font-size: 12px; color: var(--accent-blue-hover); border-color: rgba(0,136,255,0.2);" type="button" onclick="document.getElementById('tab-btn-orders').click()">
                   Ver todos
                 </button>
               </div>
@@ -220,7 +222,7 @@
                       <th>Status</th>
                     </tr>
                   </thead>
-                  <tbody id="dashboard-recent-leads-tbody">
+                  <tbody id="dashboard-recent-orders-tbody">
                     <tr>
                       <td colspan="3" class="empty-state">Carregando dados...</td>
                     </tr>
@@ -258,44 +260,46 @@
           </div>
         </section>
 
+
         <!-- ==========================================
-             TAB 2: LEADS LIST WITH ACTIONS
+             TAB 2.5: ORDERS LIST WITH ACTIONS
              ========================================== -->
-        <section class="tab-content" id="tab-leads" aria-labelledby="tab-btn-leads">
+        <section class="tab-content" id="tab-orders" aria-labelledby="tab-btn-orders">
           <div class="table-controls">
             <div class="search-wrapper">
               <svg class="search-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              <input class="search-input" type="text" id="leads-search" placeholder="Pesquisar leads por nome ou email...">
+              <input class="search-input" type="text" id="orders-search" placeholder="Pesquisar pedidos por nome, email ou telefone...">
             </div>
             
             <div class="filter-group">
-              <label for="leads-status-filter" style="font-size: 13px; color: var(--text-muted); font-weight: 700;">Filtrar:</label>
-              <select class="select-filter" id="leads-status-filter">
+              <label for="orders-status-filter" style="font-size: 13px; color: var(--text-muted); font-weight: 700;">Filtrar:</label>
+              <select class="select-filter" id="orders-status-filter">
                 <option value="all">Todos os Status</option>
-                <option value="pending">Pendente (Interessados)</option>
-                <option value="contacted">Contatados</option>
-                <option value="subscribed">Inscritos (Compradores)</option>
+                <option value="pending">🟡 Pendente (Aguardando Pagamento)</option>
+                <option value="paid">🟢 Pago (Confirmado)</option>
+                <option value="shipped">🔵 Enviado (Correios)</option>
+                <option value="cancelled">🔴 Cancelado</option>
               </select>
             </div>
           </div>
 
           <div class="table-container">
-            <table class="data-table" id="leads-table">
+            <table class="data-table" id="orders-table">
               <thead>
                 <tr>
                   <th>Nome</th>
                   <th>E-mail</th>
                   <th>Telefone</th>
-                  <th>Cadastro</th>
+                  <th>Data do Pedido</th>
                   <th>Status</th>
                   <th>Ações</th>
                 </tr>
               </thead>
-              <tbody id="leads-tbody">
+              <tbody id="orders-tbody">
                 <tr>
                   <td colspan="6" class="empty-state">
-                    <div class="empty-state-icon">📥</div>
-                    <p class="empty-state-title">Nenhum Lead Carregado</p>
+                    <div class="empty-state-icon">📦</div>
+                    <p class="empty-state-title">Nenhum Pedido Carregado</p>
                     <p class="empty-state-desc">Pressione o botão de atualizar para buscar do banco.</p>
                   </td>
                 </tr>

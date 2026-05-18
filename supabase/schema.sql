@@ -86,3 +86,38 @@ create policy "Allow anonymous inserts" on public.messages
 -- Política: Apenas usuários autenticados podem visualizar as mensagens recebidas
 create policy "Allow admin read" on public.messages
     for select using (auth.role() = 'authenticated');
+
+
+-- ==========================================
+-- 4. TABELA DE PEDIDOS DE LIVROS
+-- ==========================================
+create table if not exists public.orders (
+    id uuid primary key default gen_random_uuid(),
+    name text not null,
+    email text not null,
+    phone text,
+    status text not null default 'pending', -- 'pending', 'paid', 'shipped', 'cancelled'
+    created_at timestamp with time zone not null default timezone('utc'::text, now())
+);
+
+-- Habilitar Row Level Security (RLS)
+alter table public.orders enable row level security;
+
+-- Remove políticas anteriores para evitar conflitos ao reexecutar
+drop policy if exists "Allow anonymous inserts" on public.orders;
+drop policy if exists "Allow admin read" on public.orders;
+drop policy if exists "Allow admin update" on public.orders;
+drop policy if exists "Allow admin delete" on public.orders;
+
+-- Políticas de acesso
+create policy "Allow anonymous inserts" on public.orders
+    for insert with check (true);
+
+create policy "Allow admin read" on public.orders
+    for select using (auth.role() = 'authenticated');
+
+create policy "Allow admin update" on public.orders
+    for update using (auth.role() = 'authenticated');
+
+create policy "Allow admin delete" on public.orders
+    for delete using (auth.role() = 'authenticated');

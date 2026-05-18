@@ -39,7 +39,7 @@ const state = {
   user: null,
   profile: null,
   activeTab: "dashboard",
-  leads: [],
+  orders: [],
   messages: [],
   quizResponses: [],
   users: [],
@@ -135,11 +135,11 @@ function setupEventListeners() {
   }
 
   // Binds de Busca e Filtros
-  const leadsSearch = document.getElementById("leads-search");
-  if (leadsSearch) leadsSearch.addEventListener("input", renderLeadsTable);
+  const ordersSearch = document.getElementById("orders-search");
+  if (ordersSearch) ordersSearch.addEventListener("input", renderOrdersTable);
 
-  const leadsFilter = document.getElementById("leads-status-filter");
-  if (leadsFilter) leadsFilter.addEventListener("change", renderLeadsTable);
+  const ordersFilter = document.getElementById("orders-status-filter");
+  if (ordersFilter) ordersFilter.addEventListener("change", renderOrdersTable);
 
   const messagesSearch = document.getElementById("messages-search");
   if (messagesSearch) messagesSearch.addEventListener("input", renderMessagesList);
@@ -329,7 +329,7 @@ function switchTab(tabId) {
   // Atualizar cabeçalho da página
   const titles = {
     dashboard: "Dashboard geral",
-    leads: "Gerenciamento de Leads",
+    orders: "Gerenciamento de Pedidos",
     messages: "Mensagens Recebidas",
     quiz: "Análise de Respostas do Quiz",
     settings: "Configurações e Controle de Acesso"
@@ -338,9 +338,10 @@ function switchTab(tabId) {
 
   // Exibir/ocultar botão de exportar
   const exportBtn = document.getElementById("js-btn-export");
-  if (tabId === "leads" || tabId === "quiz") {
+  if (tabId === "orders" || tabId === "quiz") {
     exportBtn.style.display = "inline-flex";
-    exportBtn.querySelector("span").textContent = tabId === "leads" ? "Exportar Leads" : "Exportar Resultados";
+    if (tabId === "orders") exportBtn.querySelector("span").textContent = "Exportar Pedidos";
+    else exportBtn.querySelector("span").textContent = "Exportar Resultados";
   } else {
     exportBtn.style.display = "none";
   }
@@ -366,14 +367,14 @@ async function fetchAllData(forceRefresh = false) {
     };
 
     // Fazer requisições em paralelo para desempenho premium
-    const [leadsRes, messagesRes, quizRes, profilesRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/leads?order=created_at.desc`, { headers }),
+    const [ordersRes, messagesRes, quizRes, profilesRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/orders?order=created_at.desc`, { headers }),
       fetch(`${SUPABASE_URL}/rest/v1/messages?order=created_at.desc`, { headers }),
       fetch(`${SUPABASE_URL}/rest/v1/quiz_responses?order=created_at.desc`, { headers }),
       fetch(`${SUPABASE_URL}/rest/v1/profiles?order=name.asc`, { headers })
     ]);
 
-    if (leadsRes.ok) state.leads = await leadsRes.json();
+    if (ordersRes.ok) state.orders = await ordersRes.json();
     if (messagesRes.ok) state.messages = await messagesRes.json();
     if (quizRes.ok) state.quizResponses = await quizRes.json();
     if (profilesRes.ok) state.users = await profilesRes.json();
@@ -401,8 +402,8 @@ function renderAll() {
   updateDashboardKPIs();
   
   // 2. Renderizar abas dependendo do estado
-  renderRecentLeads();
-  renderLeadsTable();
+  renderRecentOrders();
+  renderOrdersTable();
   renderMessagesList();
   renderQuizAnalytics();
   renderUsersTable();
@@ -412,15 +413,18 @@ function renderAll() {
 // RENDER: DASHBOARD VIEW
 // ==========================================
 function updateDashboardKPIs() {
-  const totalLeads = state.leads.length;
-  const pendingLeads = state.leads.filter(l => l.status === "pending").length;
-  const contactedLeads = state.leads.filter(l => l.status === "contacted").length;
-  const subscribedLeads = state.leads.filter(l => l.status === "subscribed").length;
+  // Pedidos de Livros KPIs
+  const totalOrders = state.orders.length;
+  const pendingOrders = state.orders.filter(o => o.status === "pending").length;
+  const paidOrders = state.orders.filter(o => o.status === "paid").length;
+  const shippedOrders = state.orders.filter(o => o.status === "shipped").length;
 
-  document.getElementById("kpi-leads-total").textContent = totalLeads;
-  document.getElementById("sub-leads-pending").textContent = `${pendingLeads} Pendente`;
-  document.getElementById("sub-leads-contacted").textContent = `${contactedLeads} Contatado`;
-  document.getElementById("sub-leads-subscribed").textContent = `${subscribedLeads} Inscrito`;
+  document.getElementById("kpi-orders-total").textContent = totalOrders;
+  document.getElementById("sub-orders-pending").textContent = `${pendingOrders} Pendente`;
+  document.getElementById("sub-orders-paid").textContent = `${paidOrders} Pago`;
+  document.getElementById("sub-orders-shipped").textContent = `${shippedOrders} Enviado`;
+
+
 
   document.getElementById("kpi-messages-total").textContent = state.messages.length;
   document.getElementById("kpi-quiz-total").textContent = state.quizResponses.length;
@@ -448,50 +452,51 @@ function updateDashboardKPIs() {
   }
 }
 
-function renderRecentLeads() {
-  const tbody = document.getElementById("dashboard-recent-leads-tbody");
+function renderRecentOrders() {
+  const tbody = document.getElementById("dashboard-recent-orders-tbody");
   if (!tbody) return;
 
-  const recents = state.leads.slice(0, 5);
+  const recents = state.orders.slice(0, 5);
   
   if (recents.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sem leads registrados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sem pedidos registrados.</td></tr>`;
     return;
   }
 
   const statusBadges = {
     pending: '<span class="badge orange">Pendente</span>',
-    contacted: '<span class="badge blue">Contatado</span>',
-    subscribed: '<span class="badge green">Inscrito</span>'
+    paid: '<span class="badge green">Pago</span>',
+    shipped: '<span class="badge blue">Enviado</span>',
+    cancelled: '<span class="badge red">Cancelado</span>'
   };
 
-  tbody.innerHTML = recents.map(lead => `
+  tbody.innerHTML = recents.map(order => `
     <tr>
-      <td style="font-weight: 700;">${escapeHTML(lead.name || "Sem Nome")}</td>
-      <td>${escapeHTML(lead.email)}</td>
-      <td>${statusBadges[lead.status] || lead.status}</td>
+      <td style="font-weight: 700;">${escapeHTML(order.name || "Sem Nome")}</td>
+      <td>${escapeHTML(order.email)}</td>
+      <td>${statusBadges[order.status] || order.status}</td>
     </tr>
   `).join("");
 }
 
 // ==========================================
-// RENDER: LEADS TABLE
+// RENDER: ORDERS TABLE
 // ==========================================
-function renderLeadsTable() {
-  const tbody = document.getElementById("leads-tbody");
+function renderOrdersTable() {
+  const tbody = document.getElementById("orders-tbody");
   if (!tbody) return;
 
-  const searchQuery = document.getElementById("leads-search").value.toLowerCase().trim();
-  const statusFilter = document.getElementById("leads-status-filter").value;
+  const searchQuery = document.getElementById("orders-search").value.toLowerCase().trim();
+  const statusFilter = document.getElementById("orders-status-filter").value;
 
   // Filtrar
-  const filtered = state.leads.filter(lead => {
+  const filtered = state.orders.filter(order => {
     const matchesSearch = 
-      (lead.name && lead.name.toLowerCase().includes(searchQuery)) ||
-      (lead.email && lead.email.toLowerCase().includes(searchQuery)) ||
-      (lead.phone && lead.phone.includes(searchQuery));
+      (order.name && order.name.toLowerCase().includes(searchQuery)) ||
+      (order.email && order.email.toLowerCase().includes(searchQuery)) ||
+      (order.phone && order.phone.includes(searchQuery));
       
-    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -501,7 +506,7 @@ function renderLeadsTable() {
       <tr>
         <td colspan="6" class="empty-state">
           <div class="empty-state-icon">🔍</div>
-          <p class="empty-state-title">Nenhum Lead Encontrado</p>
+          <p class="empty-state-title">Nenhum Pedido Encontrado</p>
           <p class="empty-state-desc">Refine sua pesquisa ou filtro de status.</p>
         </td>
       </tr>
@@ -509,8 +514,8 @@ function renderLeadsTable() {
     return;
   }
 
-  tbody.innerHTML = filtered.map(lead => {
-    const formattedDate = new Date(lead.created_at).toLocaleDateString("pt-BR", {
+  tbody.innerHTML = filtered.map(order => {
+    const formattedDate = new Date(order.created_at).toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -518,25 +523,30 @@ function renderLeadsTable() {
       minute: "2-digit"
     });
 
+    const cleanPhone = order.phone ? order.phone.replace(/\D/g, '') : '';
+    const waLink = cleanPhone ? `https://wa.me/55${cleanPhone}` : '#';
+
     return `
-      <tr data-lead-id="${lead.id}">
-        <td style="font-weight: 700;">${escapeHTML(lead.name || "Sem Nome")}</td>
-        <td>${escapeHTML(lead.email)}</td>
-        <td>${escapeHTML(lead.phone || "Não Informado")}</td>
+      <tr data-order-id="${order.id}">
+        <td style="font-weight: 700;">${escapeHTML(order.name || "Sem Nome")}</td>
+        <td>${escapeHTML(order.email)}</td>
+        <td>${escapeHTML(order.phone || "Não Informado")}</td>
         <td>${formattedDate}</td>
         <td>
-          <select class="table-select" onchange="updateLeadStatus('${lead.id}', this.value)">
-            <option value="pending" ${lead.status === "pending" ? "selected" : ""}>Pendente</option>
-            <option value="contacted" ${lead.status === "contacted" ? "selected" : ""}>Contatado</option>
-            <option value="subscribed" ${lead.status === "subscribed" ? "selected" : ""}>Inscrito</option>
+          <select class="table-select" onchange="updateOrderStatus('${order.id}', this.value)" style="font-weight: 700;">
+            <option value="pending" ${order.status === "pending" ? "selected" : ""}>🟡 Pendente</option>
+            <option value="paid" ${order.status === "paid" ? "selected" : ""}>🟢 Pago</option>
+            <option value="shipped" ${order.status === "shipped" ? "selected" : ""}>🔵 Enviado</option>
+            <option value="cancelled" ${order.status === "cancelled" ? "selected" : ""}>🔴 Cancelado</option>
           </select>
         </td>
         <td>
           <div class="action-buttons">
-            <a href="mailto:${lead.email}?subject=Corações Puros - Livro" class="btn-icon blue" title="Enviar E-mail">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-            </a>
-            <button class="btn-icon red" title="Excluir Lead" onclick="confirmDeleteLead('${lead.id}', '${escapeHTML(lead.email)}')">
+            ${cleanPhone ? `
+            <a href="${waLink}" target="_blank" class="btn-icon blue" title="Enviar WhatsApp" style="color: #10b981; border-color: rgba(16, 185, 129, 0.2);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+            </a>` : ''}
+            <button class="btn-icon red" title="Excluir Pedido" onclick="confirmDeleteOrder('${order.id}', '${escapeHTML(order.name)}')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
             </button>
           </div>
@@ -546,10 +556,10 @@ function renderLeadsTable() {
   }).join("");
 }
 
-// Ação de Atualização de Status Inline
-async function updateLeadStatus(leadId, newStatus) {
+// Ação de Atualização de Status de Pedido Inline
+async function updateOrderStatus(orderId, newStatus) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
       method: "PATCH",
       headers: {
         "apikey": SUPABASE_ANON_KEY,
@@ -560,33 +570,31 @@ async function updateLeadStatus(leadId, newStatus) {
     });
 
     if (res.ok) {
-      showToast("Status atualizado com sucesso.", "success");
+      showToast("Status do pedido atualizado.", "success");
       // Atualizar no estado local
-      const idx = state.leads.findIndex(l => l.id === leadId);
+      const idx = state.orders.findIndex(o => o.id === orderId);
       if (idx !== -1) {
-        state.leads[idx].status = newStatus;
+        state.orders[idx].status = newStatus;
         updateDashboardKPIs();
-        renderRecentLeads();
       }
     } else {
       throw new Error("Erro na resposta da API.");
     }
   } catch (err) {
-    console.error("Erro ao atualizar status:", err);
-    showToast("Não foi possível atualizar o status do lead.", "error");
-    // Recarregar tabela para desfazer mudança visual incorreta
-    renderLeadsTable();
+    console.error("Erro ao atualizar status do pedido:", err);
+    showToast("Não foi possível atualizar o status do pedido.", "error");
+    renderOrdersTable();
   }
 }
 
-// Excluir Lead
-function confirmDeleteLead(leadId, email) {
+// Excluir Pedido
+function confirmDeleteOrder(orderId, name) {
   showConfirmModal(
-    "Excluir Lead",
-    `Deseja realmente remover o lead "${email}" permanentemente?`,
+    "Excluir Pedido",
+    `Deseja realmente remover o pedido de "${name}" permanentemente?`,
     async () => {
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
           method: "DELETE",
           headers: {
             "apikey": SUPABASE_ANON_KEY,
@@ -595,15 +603,15 @@ function confirmDeleteLead(leadId, email) {
         });
 
         if (res.ok) {
-          showToast("Lead removido com sucesso.", "success");
-          state.leads = state.leads.filter(l => l.id !== leadId);
+          showToast("Pedido removido com sucesso.", "success");
+          state.orders = state.orders.filter(o => o.id !== orderId);
           renderAll();
         } else {
           throw new Error("Erro ao excluir.");
         }
       } catch (err) {
-        console.error("Erro ao excluir lead:", err);
-        showToast("Não foi possível excluir o lead.", "error");
+        console.error("Erro ao excluir pedido:", err);
+        showToast("Não foi possível excluir o pedido.", "error");
       }
     }
   );
@@ -794,23 +802,23 @@ function renderQuizAnalytics() {
 // EXPORTAÇÃO DE CSV
 // ==========================================
 function handleExportCSV() {
-  if (state.activeTab === "leads") {
-    if (state.leads.length === 0) {
-      showToast("Não há leads para exportar.", "error");
+  if (state.activeTab === "orders") {
+    if (state.orders.length === 0) {
+      showToast("Não há pedidos para exportar.", "error");
       return;
     }
 
-    const headers = ["ID", "Nome", "E-mail", "Telefone", "Status", "Data de Cadastro"];
-    const rows = state.leads.map(l => [
-      l.id,
-      l.name || "Sem Nome",
-      l.email,
-      l.phone || "",
-      l.status,
-      l.created_at
+    const headers = ["Pedido ID", "Nome", "E-mail", "Telefone", "Status", "Data do Pedido"];
+    const rows = state.orders.map(o => [
+      o.id,
+      o.name || "Sem Nome",
+      o.email,
+      o.phone || "",
+      o.status,
+      o.created_at
     ]);
 
-    downloadCSV(headers, rows, "leads_coracoes_puros.csv");
+    downloadCSV(headers, rows, "pedidos_livros_coracoes_puros.csv");
   } else if (state.activeTab === "quiz") {
     if (state.quizResponses.length === 0) {
       showToast("Não há respostas de quiz para exportar.", "error");

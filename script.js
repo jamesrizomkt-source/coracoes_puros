@@ -272,7 +272,7 @@ buyModal.addEventListener("click", (e) => {
   if (e.target === buyModal) closeModal();
 });
 
-// Envio do formulário de Lead para o Supabase
+// Envio do formulário de Pedido para o Supabase
 if (leadForm) {
   leadForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -281,11 +281,11 @@ if (leadForm) {
     const email = formData.get("email");
     const phone = formData.get("phone");
 
-    leadFeedback.textContent = "Processando inscrição...";
+    leadFeedback.textContent = "Processando seu pedido...";
     leadFeedback.className = "form-feedback";
 
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/leads`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
         method: "POST",
         headers: {
           "apikey": SUPABASE_ANON_KEY,
@@ -293,7 +293,7 @@ if (leadForm) {
           "Content-Type": "application/json",
           "Prefer": "return=minimal"
         },
-        body: JSON.stringify({ name, email, phone })
+        body: JSON.stringify({ name, email, phone, status: 'pending' })
       });
 
       if (response.ok) {
@@ -301,17 +301,11 @@ if (leadForm) {
         modalBodySuccess.style.display = "block";
       } else {
         const err = await response.json();
-        // Caso e-mail já esteja cadastrado, prossegue direto para não quebrar fluxo do usuário
-        if (err.code === "23505") {
-          modalBodyForm.style.display = "none";
-          modalBodySuccess.style.display = "block";
-        } else {
-          throw new Error(err.message || "Erro de validação no servidor");
-        }
+        throw new Error(err.message || "Erro de validação no servidor");
       }
     } catch (error) {
-      console.error("Erro ao registrar lead:", error);
-      leadFeedback.textContent = "Ops! Ocorreu um erro ao salvar os dados. Tente novamente.";
+      console.error("Erro ao registrar pedido:", error);
+      leadFeedback.textContent = "Ops! Ocorreu um erro ao salvar o pedido. Tente novamente.";
       leadFeedback.className = "form-feedback is-error";
     }
   });
