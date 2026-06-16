@@ -311,15 +311,26 @@
               <input class="search-input" type="text" id="orders-search" placeholder="Pesquisar pedidos por nome, email ou telefone...">
             </div>
             
-            <div class="filter-group">
-              <label for="orders-status-filter" style="font-size: 13px; color: var(--text-muted); font-weight: 700;">Filtrar:</label>
-              <select class="select-filter" id="orders-status-filter">
-                <option value="all">Todos os Status</option>
-                <option value="pending">🟡 Pendente (Aguardando Pagamento)</option>
-                <option value="paid">🟢 Pago (Confirmado)</option>
-                <option value="shipped">🔵 Enviado (Correios)</option>
-                <option value="cancelled">🔴 Cancelado</option>
-              </select>
+            <div style="display: flex; gap: 15px; align-items: center;">
+              <div class="filter-group" id="bulk-actions-container" style="display: none;">
+                <select class="select-filter" id="bulk-actions-select" onchange="handleBulkAction(this.value)" style="border-color: var(--blue); color: var(--blue); font-weight: bold;">
+                  <option value="">Ações em Massa...</option>
+                  <option value="mark_paid">Marcar como Pago</option>
+                  <option value="mark_shipped">Marcar como Enviado</option>
+                  <option value="delete">Excluir Selecionados</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label for="orders-status-filter" style="font-size: 13px; color: var(--text-muted); font-weight: 700;">Filtrar:</label>
+                <select class="select-filter" id="orders-status-filter">
+                  <option value="all">Todos os Status</option>
+                  <option value="pending">🟡 Pendente (Aguardando Pagamento)</option>
+                  <option value="paid">🟢 Pago (Confirmado)</option>
+                  <option value="shipped">🔵 Enviado (Correios)</option>
+                  <option value="cancelled">🔴 Cancelado</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -327,6 +338,9 @@
             <table class="data-table" id="orders-table">
               <thead>
                 <tr>
+                  <th style="width: 40px; text-align: center;">
+                    <input type="checkbox" id="selectAllOrders" onchange="toggleSelectAllOrders(this)" style="cursor: pointer; width: 16px; height: 16px;">
+                  </th>
                   <th>Nome</th>
                   <th>E-mail</th>
                   <th>Telefone</th>
@@ -427,21 +441,48 @@
                 </div>
                 
                 <form id="js-global-settings-form">
-                  <div class="dashboard-row" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                      <label class="form-label" for="setting-book-price">Preço do Livro (R$)</label>
-                      <input class="form-input" type="number" step="0.01" id="setting-book-price" required placeholder="Ex: 49.90">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                      <label class="form-label" for="setting-pix-key">Chave PIX</label>
-                      <input class="form-input" type="text" id="setting-pix-key" required placeholder="financeiro@coracoespuros.com.br">
-                    </div>
-                  </div>
-                  
-                  <div class="form-group" style="margin-bottom: 24px;">
-                    <label class="form-label" for="setting-payment-link">Link do Checkout de Pagamento (Mercado Pago)</label>
-                    <input class="form-input" type="url" id="setting-payment-link" required placeholder="https://link.mercadopago.com.br/...">
-                  </div>
+<div class="dashboard-row" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+  <div class="form-group" style="margin-bottom: 0;">
+    <label class="form-label" for="setting-book-price">Preço do Livro (R$)</label>
+    <input class="form-input" type="number" step="0.01" id="setting-book-price" required placeholder="Ex: 49.90">
+  </div>
+  <div class="form-group" style="margin-bottom: 0;">
+    <label class="form-label" for="setting-melhor-envio-token">Token do Melhor Envio (API)</label>
+    <input class="form-input" type="password" id="setting-melhor-envio-token" required placeholder="Cole aqui seu Token Bearer do Melhor Envio">
+  </div>
+</div>
+
+<div class="form-group">
+  <label class="form-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
+    <input type="checkbox" id="setting-melhor-envio-sandbox" style="width: 20px; height: 20px; cursor: pointer;">
+    <span>Ativar Modo Sandbox (Ambiente de Testes do Melhor Envio)</span>
+  </label>
+</div>
+
+<div class="dashboard-row" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+  <div class="form-group" style="margin-bottom: 0;">
+    <label class="form-label" for="setting-book-weight">Peso (kg)</label>
+    <input class="form-input" type="number" step="0.01" id="setting-book-weight" required placeholder="Ex: 0.35">
+  </div>
+  <div class="form-group" style="margin-bottom: 0;">
+    <label class="form-label" for="setting-book-length">Comprimento (cm)</label>
+    <input class="form-input" type="number" step="0.1" id="setting-book-length" required placeholder="Ex: 23.0">
+  </div>
+  <div class="form-group" style="margin-bottom: 0;">
+    <label class="form-label" for="setting-book-width">Largura (cm)</label>
+    <input class="form-input" type="number" step="0.1" id="setting-book-width" required placeholder="Ex: 16.0">
+  </div>
+  <div class="form-group" style="margin-bottom: 0;">
+    <label class="form-label" for="setting-book-height">Altura (cm)</label>
+    <input class="form-input" type="number" step="0.1" id="setting-book-height" required placeholder="Ex: 2.5">
+  </div>
+</div>
+
+<div class="form-group" style="margin-bottom: 24px;">
+  <label class="form-label" for="setting-origin-cep">CEP de Origem (Para cálculo de Frete Melhor Envio)</label>
+  <input class="form-input" type="text" id="setting-origin-cep" required placeholder="Ex: 30130010" maxlength="8">
+</div>
+
 
                   <button class="btn btn-orange" type="submit" id="js-btn-save-settings">
                     <span>Salvar Parâmetros</span>
@@ -601,7 +642,8 @@
         </div>
       </div>
     </div>
-
-    <script src="admin.js?v=20260518"></script>
+    
+    <!-- Scripts Customizados -->
+    <script src="admin.js?v=202606161722"></script>
   </body>
 </html>

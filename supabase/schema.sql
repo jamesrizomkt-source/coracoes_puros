@@ -146,7 +146,7 @@ begin
 
   -- Realizar a chamada HTTP assíncrona usando net.http_post
   perform net.http_post(
-    url := 'https://idsqzkosgzoeratfzonx.supabase.co/functions/v1/send-emails',
+    url := 'https://lmdawrnbnnrnmxbrmgak.supabase.co/functions/v1/send-emails',
     headers := '{"Content-Type": "application/json", "x-supabase-webhook-secret": "CoracoesPurosSecretWebhook2026Token!!"}'::jsonb,
     body := payload
   );

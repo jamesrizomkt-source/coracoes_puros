@@ -1,0 +1,36 @@
+{
+  "name": "quero-criar-uma-landing-page-do",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jamesrizomkt-source/coracoes_puros.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jamesrizomkt-source/coracoes_puros/issues"
+  },
+  "homepage": "https://github.com/jamesrizomkt-source/coracoes_puros#readme",
+  "dependencies": {
+    "@mercadopago/sdk-react": "^1.0.7",
+    "@sentry/react": "^10.53.1",
+    "@supabase/supabase-js": "^2.106.2",
+    "pg": "^8.21.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^7.15.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "vite": "^8.0.14"
+  }
+}

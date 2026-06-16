@@ -2,8 +2,8 @@
    CORAÇÕES PUROS - ADMIN CONTROLLER (JAVASCRIPT)
    ========================================== */
 
-const SUPABASE_URL = "https://idsqzkosgzoeratfzonx.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlkc3F6a29zZ3pvZXJhdGZ6b254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNzUwNjgsImV4cCI6MjA4Nzk1MTA2OH0.yumr5Wwf93cWLvpp45lRdZyHehkj2sJK9Ht_W8aA65k";
+const SUPABASE_URL = "https://lmdawrnbnnrnmxbrmgak.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtZGF3cm5ibm5ybm14YnJtZ2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc4NDIsImV4cCI6MjA5NDY2Mzg0Mn0.tPPjz7YGWL3u8UHtMG65_p3KtoH6ZiiNdzUxfOXkjbs";
 
 // Configuração do Quiz correspondente ao script.js
 const quizQuestions = [
@@ -217,7 +217,7 @@ async function handleLogin(e) {
   loginBtn.disabled = true;
   loginBtn.querySelector("span").textContent = "Entrando...";
 
-  const email = document.getElementById("login-email").value;
+  const email = document.getElementById("login-email").value.trim();
   const password = document.getElementById("login-password").value;
 
   try {
@@ -233,7 +233,7 @@ async function handleLogin(e) {
     const data = await res.json();
 
     if (!res.ok) {
-      throw new Error(data.error_description || data.error || "Erro ao fazer login.");
+      throw new Error(data.msg || data.error_description || data.error || "Credenciais inválidas ou erro no login.");
     }
 
     state.token = data.access_token;
@@ -625,7 +625,7 @@ function renderOrdersTable() {
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="empty-state">
+        <td colspan="7" class="empty-state">
           <div class="empty-state-icon">🔍</div>
           <p class="empty-state-title">Nenhum Pedido Encontrado</p>
           <p class="empty-state-desc">Refine sua pesquisa ou filtro de status.</p>
@@ -646,9 +646,15 @@ function renderOrdersTable() {
 
     const cleanPhone = order.phone ? order.phone.replace(/\D/g, '') : '';
     const waLink = cleanPhone ? `https://wa.me/55${cleanPhone}` : '#';
+    
+    // Check se já estava selecionado (manter estado ao re-renderizar)
+    const isChecked = window.selectedOrders && window.selectedOrders.has(order.id) ? "checked" : "";
 
     return `
       <tr data-order-id="${order.id}">
+        <td style="text-align: center;">
+          <input type="checkbox" class="order-checkbox" value="${order.id}" onchange="toggleOrderSelection(this)" ${isChecked} style="cursor: pointer; width: 16px; height: 16px;">
+        </td>
         <td style="font-weight: 700;">${escapeHTML(order.name || "Sem Nome")}</td>
         <td>${escapeHTML(order.email)}</td>
         <td>${escapeHTML(order.phone || "Não Informado")}</td>
@@ -675,7 +681,139 @@ function renderOrdersTable() {
       </tr>
     `;
   }).join("");
+  
+  updateBulkActionsVisibility();
 }
+
+window.selectedOrders = new Set();
+
+window.toggleOrderSelection = function(checkbox) {
+  if (checkbox.checked) {
+    window.selectedOrders.add(checkbox.value);
+  } else {
+    window.selectedOrders.delete(checkbox.value);
+    document.getElementById("selectAllOrders").checked = false;
+  }
+  updateBulkActionsVisibility();
+};
+
+window.toggleSelectAllOrders = function(masterCheckbox) {
+  const checkboxes = document.querySelectorAll('.order-checkbox');
+  checkboxes.forEach(cb => {
+    cb.checked = masterCheckbox.checked;
+    if (masterCheckbox.checked) {
+      window.selectedOrders.add(cb.value);
+    } else {
+      window.selectedOrders.delete(cb.value);
+    }
+  });
+  updateBulkActionsVisibility();
+};
+
+window.updateBulkActionsVisibility = function() {
+  const container = document.getElementById("bulk-actions-container");
+  const selectAllCb = document.getElementById("selectAllOrders");
+  const checkboxes = document.querySelectorAll('.order-checkbox');
+  
+  if (container) {
+    if (window.selectedOrders.size > 0) {
+      container.style.display = "block";
+      const bulkSelect = document.getElementById("bulk-actions-select");
+      if (bulkSelect) {
+        bulkSelect.options[0].text = `Ações em Massa (${window.selectedOrders.size})...`;
+      }
+    } else {
+      container.style.display = "none";
+    }
+  }
+  
+  // Atualiza master checkbox se todos visíveis estiverem checkados
+  if (selectAllCb && checkboxes.length > 0) {
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    selectAllCb.checked = allChecked;
+  }
+};
+
+window.handleBulkAction = async function(action) {
+  if (!action || window.selectedOrders.size === 0) return;
+  
+  const ids = Array.from(window.selectedOrders);
+  
+  if (action === "delete") {
+    if (!confirm(`Tem certeza que deseja excluir ${ids.length} pedidos selecionados?`)) {
+      document.getElementById("bulk-actions-select").value = "";
+      return;
+    }
+    
+    try {
+      showToast("Excluindo pedidos...", "info");
+      const query = `id=in.(${ids.join(",")})`;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?${query}`, {
+        method: "DELETE",
+        headers: {
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${state.token}`
+        }
+      });
+      
+      if (!res.ok) throw new Error("Falha ao excluir");
+      
+      showToast(`${ids.length} pedidos excluídos com sucesso.`, "success");
+      
+      // Limpar seleção
+      window.selectedOrders.clear();
+      document.getElementById("bulk-actions-select").value = "";
+      updateBulkActionsVisibility();
+      
+      // Recarregar a tabela
+      fetchAllData(true);
+      
+    } catch (e) {
+      console.error(e);
+      showToast("Erro ao excluir pedidos.", "error");
+      document.getElementById("bulk-actions-select").value = "";
+    }
+  } else if (action === "mark_paid" || action === "mark_shipped") {
+    const newStatus = action === "mark_paid" ? "paid" : "shipped";
+    const statusName = action === "mark_paid" ? "PAGO" : "ENVIADO";
+    
+    if (!confirm(`Mudar o status de ${ids.length} pedidos para ${statusName}?`)) {
+      document.getElementById("bulk-actions-select").value = "";
+      return;
+    }
+    
+    try {
+      showToast("Atualizando status...", "info");
+      const query = `id=in.(${ids.join(",")})`;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?${query}`, {
+        method: "PATCH",
+        headers: {
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${state.token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (!res.ok) throw new Error("Falha ao atualizar");
+      
+      showToast(`Status atualizado com sucesso.`, "success");
+      
+      // Limpar seleção
+      window.selectedOrders.clear();
+      document.getElementById("bulk-actions-select").value = "";
+      updateBulkActionsVisibility();
+      
+      // Recarregar a tabela
+      fetchAllData(true);
+      
+    } catch (e) {
+      console.error(e);
+      showToast("Erro ao atualizar pedidos.", "error");
+      document.getElementById("bulk-actions-select").value = "";
+    }
+  }
+};
 
 // Ação de Atualização de Status de Pedido Inline
 async function updateOrderStatus(orderId, newStatus) {
@@ -1309,28 +1447,39 @@ async function handleSignUp(e) {
 // CONFIGURAÇÕES GLOBAIS (AJUSTES E ALERTAS)
 // ==========================================
 
-// Preenche os campos do formulário de Ajustes Globais
 function populateSettingsForm() {
   const priceInput = document.getElementById("setting-book-price");
-  const pixInput = document.getElementById("setting-pix-key");
-  const linkInput = document.getElementById("setting-payment-link");
+  const tokenInput = document.getElementById("setting-melhor-envio-token");
   const emailInput = document.getElementById("setting-admin-email");
   const notifInput = document.getElementById("setting-notifications-enabled");
+  
+  const weightInput = document.getElementById("setting-book-weight");
+  const lengthInput = document.getElementById("setting-book-length");
+  const widthInput = document.getElementById("setting-book-width");
+  const heightInput = document.getElementById("setting-book-height");
+  const cepInput = document.getElementById("setting-origin-cep");
+  const sandboxInput = document.getElementById("setting-melhor-envio-sandbox");
 
   if (priceInput && state.settings.book_price !== undefined) {
     priceInput.value = state.settings.book_price;
   }
-  if (pixInput && state.settings.pix_key !== undefined) {
-    pixInput.value = state.settings.pix_key;
-  }
-  if (linkInput && state.settings.payment_link !== undefined) {
-    linkInput.value = state.settings.payment_link;
+  if (tokenInput && state.settings.melhor_envio_token !== undefined) {
+    tokenInput.value = state.settings.melhor_envio_token;
   }
   if (emailInput && state.settings.admin_email !== undefined) {
     emailInput.value = state.settings.admin_email;
   }
   if (notifInput && state.settings.notifications_enabled !== undefined) {
     notifInput.checked = state.settings.notifications_enabled === "true";
+  }
+  
+  if (weightInput && state.settings.book_weight !== undefined) weightInput.value = state.settings.book_weight;
+  if (lengthInput && state.settings.book_length !== undefined) lengthInput.value = state.settings.book_length;
+  if (widthInput && state.settings.book_width !== undefined) widthInput.value = state.settings.book_width;
+  if (heightInput && state.settings.book_height !== undefined) heightInput.value = state.settings.book_height;
+  if (cepInput && state.settings.melhor_envio_origin_cep !== undefined) cepInput.value = state.settings.melhor_envio_origin_cep;
+  if (sandboxInput && state.settings.melhor_envio_sandbox !== undefined) {
+    sandboxInput.checked = state.settings.melhor_envio_sandbox === "true";
   }
 }
 
@@ -1344,14 +1493,18 @@ async function saveGlobalSetting(key, value) {
       "Prefer": "resolution=merge-duplicates"
     };
 
-    // Fazer um PATCH para atualizar o valor da chave específica
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.${key}`, {
-      method: "PATCH",
+    // Fazer um POST com a flag merge-duplicates para fazer UPSERT
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?on_conflict=key`, {
+      method: "POST",
       headers,
-      body: JSON.stringify({ value, updated_at: new Date().toISOString() })
+      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
     });
 
-    if (!res.ok) throw new Error("Erro na resposta REST do Supabase.");
+    if (!res.ok) {
+      const errorText = await res.text();
+      alert(`Erro Supabase para ${key}: ${errorText}`);
+      throw new Error(`Erro na resposta REST: ${errorText}`);
+    }
     
     // Atualizar no estado local
     state.settings[key] = value;
@@ -1373,18 +1526,28 @@ async function handleSaveGlobalSettings(e) {
   }
 
   const bookPrice = document.getElementById("setting-book-price").value.trim();
-  const pixKey = document.getElementById("setting-pix-key").value.trim();
-  const paymentLink = document.getElementById("setting-payment-link").value.trim();
+  const meToken = document.getElementById("setting-melhor-envio-token").value.trim();
+  const bookWeight = document.getElementById("setting-book-weight").value.trim();
+  const bookLength = document.getElementById("setting-book-length").value.trim();
+  const bookWidth = document.getElementById("setting-book-width").value.trim();
+  const bookHeight = document.getElementById("setting-book-height").value.trim();
+  const originCep = document.getElementById("setting-origin-cep").value.trim();
+  const sandboxEnabled = document.getElementById("setting-melhor-envio-sandbox").checked ? "true" : "false";
 
   try {
-    // Salvar todas as três configurações em paralelo
-    const [priceOk, pixOk, linkOk] = await Promise.all([
+    // Salvar todas as configurações em paralelo
+    const results = await Promise.all([
       saveGlobalSetting("book_price", bookPrice),
-      saveGlobalSetting("pix_key", pixKey),
-      saveGlobalSetting("payment_link", paymentLink)
+      saveGlobalSetting("melhor_envio_token", meToken),
+      saveGlobalSetting("book_weight", bookWeight),
+      saveGlobalSetting("book_length", bookLength),
+      saveGlobalSetting("book_width", bookWidth),
+      saveGlobalSetting("book_height", bookHeight),
+      saveGlobalSetting("melhor_envio_origin_cep", originCep),
+      saveGlobalSetting("melhor_envio_sandbox", sandboxEnabled)
     ]);
 
-    if (priceOk && pixOk && linkOk) {
+    if (results.every(res => res === true)) {
       showToast("Parâmetros de venda salvos com sucesso!", "success");
     } else {
       showToast("Alguns parâmetros não puderam ser salvos.", "error");
