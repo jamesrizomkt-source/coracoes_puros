@@ -1143,6 +1143,8 @@ dd {
   position: relative;
   width: 100%;
   max-width: 480px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: calc(var(--radius) * 1.5);
   padding: clamp(24px, 5vw, 36px);

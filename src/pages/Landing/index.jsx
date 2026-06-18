@@ -19,6 +19,7 @@ export default function CheckoutWidget() {
   const [showBrick, setShowBrick] = useState(false);
   const [finalPrice, setFinalPrice] = useState(0);
   const [bookPrice, setBookPrice] = useState(59.90);
+  const [addressData, setAddressData] = useState({ street: '', district: '', city: '', state: '' });
 
   const loadPrice = async () => {
     try {
@@ -71,6 +72,13 @@ export default function CheckoutWidget() {
     const phone = formData.get("phone");
     const rawCep = formData.get("cep") || "";
     const cep = rawCep.replace(/\D/g, "");
+    const address_street = formData.get("street") || addressData.street;
+    const address_number = formData.get("number") || "";
+    const address_complement = formData.get("complement") || "";
+    const address_district = formData.get("district") || addressData.district;
+    const address_city = formData.get("city") || addressData.city;
+    const address_state = formData.get("state") || addressData.state;
+    const buyer_cpf = formData.get("cpf") || "";
 
     setFeedback("Processando seu pedido e calculando frete...");
     setIsError(false);
@@ -85,8 +93,15 @@ export default function CheckoutWidget() {
         name,
         email,
         phone,
-        cep,
-        status: 'pending'
+        status: 'pending',
+        address_cep: cep,
+        address_street,
+        address_number,
+        address_complement,
+        address_district,
+        address_city,
+        address_state,
+        buyer_cpf
       }]);
 
       if (dbError) throw dbError;
@@ -305,7 +320,66 @@ export default function CheckoutWidget() {
               </div>
               <div className="form-group">
                 <label htmlFor="lead-cep">CEP de Entrega</label>
-                <input type="text" id="lead-cep" name="cep" required placeholder="Ex: 30130-010" maxLength="9" pattern="\d{5}-?\d{3}" title="Digite um CEP válido (com ou sem traço)" />
+                <input 
+                  type="text" 
+                  id="lead-cep" 
+                  name="cep" 
+                  required 
+                  placeholder="Ex: 30130-010" 
+                  maxLength="9" 
+                  pattern="\d{5}-?\d{3}" 
+                  title="Digite um CEP válido" 
+                  onChange={async (e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val.length === 8) {
+                      try {
+                        const res = await fetch(`https://viacep.com.br/ws/${val}/json/`);
+                        const data = await res.json();
+                        if (!data.erro) {
+                          setAddressData({ street: data.logradouro, district: data.bairro, city: data.localidade, state: data.uf });
+                        }
+                      } catch(err) {}
+                    }
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <div className="form-group" style={{ flex: 2 }}>
+                  <label htmlFor="lead-street">Rua</label>
+                  <input type="text" id="lead-street" name="street" required value={addressData.street} onChange={(e) => setAddressData({...addressData, street: e.target.value})} placeholder="Ex: Av. Paulista" />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label htmlFor="lead-number">Número</label>
+                  <input type="text" id="lead-number" name="number" required placeholder="Ex: 1000" />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label htmlFor="lead-complement">Complemento</label>
+                  <input type="text" id="lead-complement" name="complement" placeholder="Apto, Bloco..." />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label htmlFor="lead-district">Bairro</label>
+                  <input type="text" id="lead-district" name="district" required value={addressData.district} onChange={(e) => setAddressData({...addressData, district: e.target.value})} placeholder="Bairro" />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <div className="form-group" style={{ flex: 2 }}>
+                  <label htmlFor="lead-city">Cidade</label>
+                  <input type="text" id="lead-city" name="city" required value={addressData.city} onChange={(e) => setAddressData({...addressData, city: e.target.value})} placeholder="Cidade" />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label htmlFor="lead-state">Estado</label>
+                  <input type="text" id="lead-state" name="state" required value={addressData.state} onChange={(e) => setAddressData({...addressData, state: e.target.value})} placeholder="SP" maxLength="2" />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="lead-cpf">Seu CPF (obrigatório para envio)</label>
+                <input type="text" id="lead-cpf" name="cpf" required placeholder="Ex: 000.000.000-00" maxLength="14" pattern="\d{3}\.?\d{3}\.?\d{3}-?\d{2}" title="Digite um CPF válido" />
               </div>
               <button type="submit" className="button button-primary" style={{ width: "100%", marginTop: "10px", cursor: "pointer" }} disabled={loadingPayment}>
                 {loadingPayment ? "Calculando frete..." : "Confirmar e Prosseguir"}
@@ -354,6 +428,9 @@ export default function CheckoutWidget() {
                             </label>
                           ))}
                         </div>
+                        <div style={{ marginTop: "10px", fontSize: "11.5px", color: "var(--muted)", fontStyle: "italic", textAlign: "left", lineHeight: "1.3" }}>
+                          * Os despachos aos Correios/Transportadoras são realizados semanalmente.
+                        </div>
                       </div>
                     )}
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #dee2e6" }}>
@@ -362,17 +439,15 @@ export default function CheckoutWidget() {
                     </div>
                   </div>
 
-                  <div style={{ textAlign: 'left', minHeight: '400px' }}>
-                    <Payment
-                      initialization={{ amount: finalPrice }}
-                      customization={{
-                        paymentMethods: {
-                          pix: "all",
-                          creditCard: "all"
-                        }
-                      }}
-                      onSubmit={handlePaymentSubmit}
-                    />
+                  <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                    {/* Botão Temporário enquanto as chaves do Mercado Pago não são fornecidas */}
+                    <button 
+                      className="button button-primary" 
+                      style={{ width: "100%", padding: "14px", fontSize: "16px", cursor: "pointer" }}
+                      onClick={() => handlePaymentSubmit(null)}
+                    >
+                      Concluir Pedido
+                    </button>
                   </div>
                 </>
               ) : (
@@ -411,6 +486,9 @@ export default function CheckoutWidget() {
                               <div style={{ fontSize: "14px", fontWeight: "bold", color: "var(--blue)" }}>R$ {parseFloat(opt.price).toFixed(2).replace('.', ',')}</div>
                             </label>
                           ))}
+                        </div>
+                        <div style={{ marginTop: "10px", fontSize: "11.5px", color: "var(--muted)", fontStyle: "italic", textAlign: "left", lineHeight: "1.3" }}>
+                          * Os despachos aos Correios/Transportadoras são realizados semanalmente.
                         </div>
                       </div>
                     )}

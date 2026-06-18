@@ -97,6 +97,15 @@ create table if not exists public.orders (
     email text not null,
     phone text,
     status text not null default 'pending', -- 'pending', 'paid', 'shipped', 'cancelled'
+    melhor_envio_label_url text,
+    melhor_envio_tracking text,
+    address_street text,
+    address_number text,
+    address_complement text,
+    address_district text,
+    address_city text,
+    address_state text,
+    buyer_cpf text,
     created_at timestamp with time zone not null default timezone('utc'::text, now())
 );
 

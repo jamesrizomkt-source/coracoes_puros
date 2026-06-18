@@ -51,7 +51,74 @@ const state = {
 // ==========================================
 // INICIALIZAÇÃO E VERIFICAÇÃO DE SESSÃO
 // ==========================================
-document.addEventListener("DOMContentLoaded", async () => {
+// INICIALIZAÇÃO
+document.addEventListener("DOMContentLoaded", initApp);
+
+// -------------------------------------------------------------
+// GERAÇÃO DE ETIQUETA (Melhor Envio)
+// -------------------------------------------------------------
+window.generateLabel = async function(orderId) {
+  let popup = window.open('', '_blank');
+  if (popup) popup.document.write("<h2>Gerando etiqueta... Por favor aguarde.</h2>");
+  
+  try {
+    const btn = document.getElementById('btn-label-' + orderId);
+    let originalText = "";
+    if (btn) {
+      originalText = btn.innerHTML;
+      btn.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:2px;display:inline-block;border-color:var(--accent-orange);border-bottom-color:transparent;"></span>';
+      btn.disabled = true;
+    }
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/melhor-envio/generate-label`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${state.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ order_id: orderId })
+    });
+    
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      if (popup) popup.close();
+      alert("Erro ao gerar etiqueta: " + (data.error || "Desconhecido. Verifique se o endereço do cliente está completo."));
+      if (btn) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+      return;
+    }
+    
+    showToast("Etiqueta gerada com sucesso!", "success");
+    
+    // Atualiza estado local
+    const orderIndex = state.orders.findIndex(o => o.id === orderId);
+    if (orderIndex > -1) {
+      state.orders[orderIndex].melhor_envio_label_url = data.url;
+      state.orders[orderIndex].melhor_envio_tracking = data.tracking;
+      renderOrdersTable();
+    }
+    
+    if(data.url) {
+      if (popup) popup.location.href = data.url;
+      else window.open(data.url, '_blank');
+    } else {
+      if (popup) popup.close();
+    }
+    
+  } catch(err) {
+    if (popup) popup.close();
+    alert("Erro na requisição: " + err.message);
+    const btn = document.getElementById('btn-label-' + orderId);
+    if (btn) {
+      btn.innerHTML = '📦';
+      btn.disabled = false;
+    }
+  }
+}
+
+async function initApp() {
   setupEventListeners();
   
   // Tentar restaurar sessão
@@ -73,7 +140,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       showToast("Sessão expirada. Faça login novamente.", "error");
     }
   }
-});
+}
 
 // Verifica a autenticidade do token do usuário
 async function verifySession() {
@@ -650,16 +717,33 @@ function renderOrdersTable() {
     // Check se já estava selecionado (manter estado ao re-renderizar)
     const isChecked = window.selectedOrders && window.selectedOrders.has(order.id) ? "checked" : "";
 
+    let labelBtn = "";
+    if (order.status === "paid" || order.status === "shipped") {
+      if (order.melhor_envio_label_url) {
+        labelBtn = `
+          <a href="${order.melhor_envio_label_url}" target="_blank" class="btn-icon" title="Imprimir Etiqueta" style="color: var(--text-main); border-color: var(--line);">
+            🖨️
+          </a>
+        `;
+      } else {
+        labelBtn = `
+          <button id="btn-label-${order.id}" class="btn-icon" title="Gerar Etiqueta (Melhor Envio)" onclick="generateLabel('${order.id}')" style="color: var(--accent-orange); border-color: rgba(255, 136, 0, 0.2);">
+            📦
+          </button>
+        `;
+      }
+    }
+
     return `
-      <tr data-order-id="${order.id}">
-        <td style="text-align: center;">
+      <tr data-order-id="${order.id}" style="cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="openOrderModal('${order.id}')">
+        <td style="text-align: center;" onclick="event.stopPropagation()">
           <input type="checkbox" class="order-checkbox" value="${order.id}" onchange="toggleOrderSelection(this)" ${isChecked} style="cursor: pointer; width: 16px; height: 16px;">
         </td>
         <td style="font-weight: 700;">${escapeHTML(order.name || "Sem Nome")}</td>
         <td>${escapeHTML(order.email)}</td>
         <td>${escapeHTML(order.phone || "Não Informado")}</td>
         <td>${formattedDate}</td>
-        <td>
+        <td onclick="event.stopPropagation()">
           <select class="table-select" onchange="updateOrderStatus('${order.id}', this.value)" style="font-weight: 700;">
             <option value="pending" ${order.status === "pending" ? "selected" : ""}>🟡 Pendente</option>
             <option value="paid" ${order.status === "paid" ? "selected" : ""}>🟢 Pago</option>
@@ -667,8 +751,9 @@ function renderOrdersTable() {
             <option value="cancelled" ${order.status === "cancelled" ? "selected" : ""}>🔴 Cancelado</option>
           </select>
         </td>
-        <td>
+        <td onclick="event.stopPropagation()">
           <div class="action-buttons">
+            ${labelBtn}
             ${cleanPhone ? `
             <a href="${waLink}" target="_blank" class="btn-icon blue" title="Enviar WhatsApp" style="color: #10b981; border-color: rgba(16, 185, 129, 0.2);">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
@@ -756,7 +841,11 @@ window.handleBulkAction = async function(action) {
         }
       });
       
-      if (!res.ok) throw new Error("Falha ao excluir");
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("Erro do Supabase:", errText);
+        throw new Error(errText || "Falha ao excluir");
+      }
       
       showToast(`${ids.length} pedidos excluídos com sucesso.`, "success");
       
@@ -768,11 +857,11 @@ window.handleBulkAction = async function(action) {
       // Recarregar a tabela
       fetchAllData(true);
       
-    } catch (e) {
-      console.error(e);
-      showToast("Erro ao excluir pedidos.", "error");
-      document.getElementById("bulk-actions-select").value = "";
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Erro ao excluir pedidos.", "error");
     }
+    document.getElementById("bulk-actions-select").value = "";
   } else if (action === "mark_paid" || action === "mark_shipped") {
     const newStatus = action === "mark_paid" ? "paid" : "shipped";
     const statusName = action === "mark_paid" ? "PAGO" : "ENVIADO";
@@ -812,6 +901,59 @@ window.handleBulkAction = async function(action) {
       showToast("Erro ao atualizar pedidos.", "error");
       document.getElementById("bulk-actions-select").value = "";
     }
+  } else if (action === "generate_labels") {
+    if (!confirm(`Gerar etiquetas em lote para os ${ids.length} pedidos selecionados? Isso irá gerar um arquivo PDF contendo todas elas.`)) {
+      document.getElementById("bulk-actions-select").value = "";
+      return;
+    }
+    
+    // Abrir janela antes do await para driblar bloqueadores de popup
+    let popup = window.open('', '_blank');
+    if (popup) {
+      popup.document.write("<h2>Gerando etiquetas... Por favor aguarde.</h2>");
+    }
+    
+    try {
+      showToast("Gerando etiquetas em lote. Isso pode demorar alguns segundos...", "info");
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/melhor-envio/generate-labels-bulk`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${state.token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ order_ids: ids })
+      });
+      
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Erro desconhecido ao gerar em lote.");
+      }
+      
+      showToast(`${data.generated_count || ids.length} etiquetas geradas/recuperadas com sucesso!`, "success");
+      
+      window.selectedOrders.clear();
+      document.getElementById("bulk-actions-select").value = "";
+      updateBulkActionsVisibility();
+      
+      fetchAllData(true);
+      
+      if(data.url) {
+        if (popup) {
+          popup.location.href = data.url;
+        } else {
+          window.open(data.url, '_blank');
+        }
+      } else if (popup) {
+        popup.close();
+      }
+      
+    } catch (e) {
+      console.error(e);
+      if (popup) popup.close();
+      showToast("Falha na geração: " + e.message, "error");
+      alert("⚠️ Erro na geração em lote:\n\n" + e.message + "\n\nDica: Pedidos antigos que não têm endereço ou CPF salvos no banco não podem gerar etiquetas!");
+      document.getElementById("bulk-actions-select").value = "";
+    }
   }
 };
 
@@ -835,6 +977,7 @@ async function updateOrderStatus(orderId, newStatus) {
       if (idx !== -1) {
         state.orders[idx].status = newStatus;
         updateDashboardKPIs();
+        renderOrdersTable(); // Re-renderizar a tabela para exibir ou esconder o botão de etiqueta
       }
     } else {
       throw new Error("Erro na resposta da API.");
@@ -861,13 +1004,15 @@ function confirmDeleteOrder(orderId, name) {
           }
         });
 
-        if (res.ok) {
-          showToast("Pedido removido com sucesso.", "success");
-          state.orders = state.orders.filter(o => o.id !== orderId);
-          renderAll();
-        } else {
-          throw new Error("Erro ao excluir.");
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("Erro do Supabase:", errText);
+          throw new Error(errText || "Falha ao excluir pedido");
         }
+        
+        showToast("Pedido excluído com sucesso.", "success");
+        state.orders = state.orders.filter(o => o.id !== orderId);
+        renderAll();
       } catch (err) {
         console.error("Erro ao excluir pedido:", err);
         showToast("Não foi possível excluir o pedido.", "error");
@@ -1179,7 +1324,8 @@ function closeConfirmModal() {
 
 // Auxiliares de Segurança
 function escapeHTML(str) {
-  return str.replace(/[&<>'"]/g, 
+  if (str === null || str === undefined) return "";
+  return String(str).replace(/[&<>'"]/g, 
     tag => ({
       '&': '&amp;',
       '<': '&lt;',
@@ -1653,3 +1799,77 @@ async function handleTriggerDailyReportManual() {
     }
   }
 }
+
+// ==========================================
+// ORDER DETAILS MODAL
+// ==========================================
+window.openOrderModal = function(orderId) {
+  const order = state.orders.find(o => o.id === orderId);
+  if (!order) return;
+
+  const modal = document.getElementById("js-order-modal");
+  const content = document.getElementById("js-order-modal-content");
+
+  const dateStr = new Date(order.created_at).toLocaleString('pt-BR');
+  const statusLabels = { pending: 'Pendente', paid: 'Pago', shipped: 'Enviado', cancelled: 'Cancelado' };
+
+  content.innerHTML = `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div>
+        <strong style="color: var(--text-main);">Nome do Cliente:</strong><br>
+        ${escapeHTML(order.name || "N/A")}
+      </div>
+      <div>
+        <strong style="color: var(--text-main);">E-mail:</strong><br>
+        ${escapeHTML(order.email || "N/A")}
+      </div>
+      <div>
+        <strong style="color: var(--text-main);">Telefone (WhatsApp):</strong><br>
+        ${escapeHTML(order.phone || "N/A")}
+      </div>
+      <div>
+        <strong style="color: var(--text-main);">Data do Pedido:</strong><br>
+        ${dateStr}
+      </div>
+      <div>
+        <strong style="color: var(--text-main);">CPF do Comprador:</strong><br>
+        ${escapeHTML(order.buyer_cpf || "Não Informado")}
+      </div>
+      <div>
+        <strong style="color: var(--text-main);">Status:</strong><br>
+        ${statusLabels[order.status] || order.status}
+      </div>
+    </div>
+    
+    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+    
+    <h4 style="color: var(--text-main); margin-bottom: 12px;">Endereço de Entrega</h4>
+    <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+      <div><strong>CEP:</strong> ${escapeHTML(order.address_cep || "N/A")}</div>
+      <div><strong>Rua:</strong> ${escapeHTML(order.address_street || "N/A")}, ${escapeHTML(order.address_number || "S/N")}</div>
+      <div><strong>Complemento:</strong> ${escapeHTML(order.address_complement || "Nenhum")}</div>
+      <div><strong>Bairro:</strong> ${escapeHTML(order.address_district || "N/A")}</div>
+      <div><strong>Cidade/UF:</strong> ${escapeHTML(order.address_city || "N/A")} / ${escapeHTML(order.address_state || "N/A")}</div>
+    </div>
+    
+    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+    
+    <h4 style="color: var(--text-main); margin-bottom: 12px;">Informações de Pagamento e Logística</h4>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div>
+        <strong style="color: var(--text-main);">ID Pagamento MP:</strong><br>
+        ${escapeHTML(order.mercado_pago_payment_id || "N/A")}
+      </div>
+      <div>
+        <strong style="color: var(--text-main);">Código de Rastreio:</strong><br>
+        ${escapeHTML(order.melhor_envio_tracking || "N/A")}
+      </div>
+    </div>
+  `;
+
+  modal.style.display = "flex";
+};
+
+window.closeOrderModal = function() {
+  document.getElementById("js-order-modal").style.display = "none";
+};

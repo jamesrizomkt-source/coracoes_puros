@@ -279,7 +279,7 @@ serve(async (req) => {
       };
 
       // Enviar requisição para adicionar ao carrinho do Melhor Envio
-      const cartRes = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/shipment/cart`, {
+      const cartRes = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/cart`, {
         method: "POST",
         headers: {
           "Accept": "application/json",
@@ -315,7 +315,246 @@ serve(async (req) => {
       );
     }
 
-    // Rota padrão se não for /calculate ou /cart
+    // Função auxiliar para buscar os dados completos do lojista (remetente)
+    async function getSenderData() {
+      // 1. Tentar pegar Nome e Documento do perfil da conta Melhor Envio
+      let senderName = "Corações Puros";
+      let senderDocument = "72985392095"; // CPF de fallback válido
+      let senderPhone = "11999999999";
+
+      try {
+        const meProfileReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me`, {
+          headers: { "Accept": "application/json", "Authorization": `Bearer ${meToken}` }
+        });
+        if (meProfileReq.ok) {
+          const profile = await meProfileReq.json();
+          if (profile.firstname) senderName = `${profile.firstname} ${profile.lastname || ""}`.trim();
+          if (profile.document) senderDocument = profile.document;
+          if (profile.phone && profile.phone.phone) senderPhone = profile.phone.phone;
+        }
+      } catch (e) {
+        console.error("Erro ao buscar perfil ME", e);
+      }
+
+      // 2. Buscar Cidade, Estado, Rua usando o CEP de origem via ViaCEP
+      let merchantCity = "São Paulo";
+      let merchantState = "SP";
+      let merchantAddress = "Rua Central";
+      let merchantDistrict = "Centro";
+
+      try {
+        const viaCepReq = await fetch(`https://viacep.com.br/ws/${meOriginCep.replace(/\D/g, "")}/json/`);
+        if (viaCepReq.ok) {
+          const viaCepData = await viaCepReq.json();
+          if (!viaCepData.erro) {
+            merchantCity = viaCepData.localidade;
+            merchantState = viaCepData.uf;
+            if (viaCepData.logradouro) merchantAddress = viaCepData.logradouro;
+            if (viaCepData.bairro) merchantDistrict = viaCepData.bairro;
+          }
+        }
+      } catch (e) {
+        console.error("Erro ViaCEP", e);
+      }
+
+      return {
+        name: senderName,
+        phone: senderPhone.replace(/\D/g, ""),
+        email: settings.admin_email || "contato@coracoespuros.com",
+        document: senderDocument.replace(/\D/g, ""),
+        address: merchantAddress,
+        number: "S/N",
+        district: merchantDistrict,
+        city: merchantCity,
+        state_abbr: merchantState,
+        country_id: "BR",
+        postal_code: meOriginCep.replace(/\D/g, "")
+      };
+    }
+
+    // -------------------------------------------------------------
+    // ENDPOINT: GERAR ETIQUETA ÚNICA (POST /generate-label)
+    // -------------------------------------------------------------
+    if (path.endsWith("/generate-label")) {
+      if (req.method !== "POST") return new Response("Método Não Permitido", { status: 405, headers: corsHeaders });
+      
+      const authHeader = req.headers.get("authorization");
+      if (!authHeader) return new Response(JSON.stringify({ error: "Acesso negado." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const body = await req.json();
+      const orderId = body.order_id;
+      if (!orderId) return new Response(JSON.stringify({ error: "order_id é obrigatório" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const orderRes = await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${orderId}&select=*`, { headers: { "apikey": supabaseKey, "Authorization": `Bearer ${supabaseKey}` } });
+      const orders = await orderRes.json();
+      if (!orders || orders.length === 0) return new Response(JSON.stringify({ error: "Pedido não encontrado" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      
+      const order = orders[0];
+      if (!order.address_street || !order.address_number || !order.address_cep || !order.buyer_cpf) {
+        return new Response(JSON.stringify({ error: "O pedido não possui endereço completo ou CPF salvo no banco." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const senderFrom = await getSenderData();
+      const insuranceValue = insuranceEnabled ? bookPrice : 0;
+      
+      const serviceType = isSandbox ? 2 : 17; // SEDEX no Sandbox, Impresso Módico na Produção
+      
+      const cartPayload = {
+        service: serviceType, // 17 = Impresso módico, 2 = SEDEX
+        agency: null,
+        from: senderFrom,
+        to: {
+          name: order.name,
+          phone: (order.phone || "11999999999").replace(/\D/g, ""),
+          email: order.email,
+          document: order.buyer_cpf.replace(/\D/g, ""),
+          address: order.address_street,
+          number: order.address_number,
+          complement: order.address_complement || "",
+          district: order.address_district || "Bairro",
+          city: order.address_city,
+          state_abbr: order.address_state,
+          country_id: "BR",
+          postal_code: order.address_cep.replace(/\D/g, "")
+        },
+        products: [{ name: "Livro Físico - Corações Puros", quantity: 1, unitary_value: bookPrice }],
+        volumes: [{ width: bookWidth, height: bookHeight, length: bookLength, weight: bookWeight }],
+        options: { receipt: arEnabled, own_hand: false, collect: false, non_commercial: true, insurance_value: insuranceValue }
+      };
+
+      const cartReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/cart`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify(cartPayload) });
+      if (!cartReq.ok) return new Response(JSON.stringify({ error: "Erro ao adicionar ao carrinho Melhor Envio", details: await cartReq.text() }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const cartData = await cartReq.json();
+      const ticketId = cartData.id;
+
+      const checkoutReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/shipment/checkout`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify({ orders: [ticketId] }) });
+      if (!checkoutReq.ok) return new Response(JSON.stringify({ error: "Erro no checkout do carrinho Melhor Envio", details: await checkoutReq.text() }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const generateReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/shipment/generate`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify({ orders: [ticketId] }) });
+      if (!generateReq.ok) return new Response(JSON.stringify({ error: "Erro ao gerar etiqueta", details: await generateReq.text() }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      await new Promise(r => setTimeout(r, 1000));
+
+      const printReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/shipment/print`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify({ mode: "public", orders: [ticketId] }) });
+      if (!printReq.ok) return new Response(JSON.stringify({ error: "Erro ao imprimir etiqueta", details: await printReq.text() }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const printData = await printReq.json();
+
+      await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`, {
+        method: "PATCH",
+        headers: { "apikey": supabaseKey, "Authorization": `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ melhor_envio_label_url: printData.url, melhor_envio_tracking: cartData.tracking })
+      });
+
+      return new Response(JSON.stringify({ success: true, url: printData.url, tracking: cartData.tracking }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // -------------------------------------------------------------
+    // ENDPOINT: GERAR ETIQUETAS EM LOTE (POST /generate-labels-bulk)
+    // -------------------------------------------------------------
+    if (path.endsWith("/generate-labels-bulk")) {
+      if (req.method !== "POST") return new Response("Método Não Permitido", { status: 405, headers: corsHeaders });
+      
+      const authHeader = req.headers.get("authorization");
+      if (!authHeader) return new Response(JSON.stringify({ error: "Acesso negado." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const body = await req.json();
+      const orderIds = body.order_ids;
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+        return new Response(JSON.stringify({ error: "A lista de order_ids é obrigatória e não pode ser vazia." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const idsQuery = orderIds.join(",");
+      const orderRes = await fetch(`${supabaseUrl}/rest/v1/orders?id=in.(${idsQuery})&select=*`, { headers: { "apikey": supabaseKey, "Authorization": `Bearer ${supabaseKey}` } });
+      const orders = await orderRes.json();
+      if (!orders || orders.length === 0) return new Response(JSON.stringify({ error: "Nenhum pedido válido encontrado." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const ticketIds = [];
+      const trackingMap: Record<string, any> = {};
+      const cartErrors = [];
+      const senderFrom = await getSenderData();
+
+      for (const order of orders) {
+        if (!order.address_street || !order.address_number || !order.address_cep || !order.buyer_cpf) {
+          continue; 
+        }
+        if (order.melhor_envio_label_url) {
+          continue; 
+        }
+
+        const insuranceValue = insuranceEnabled ? bookPrice : 0;
+        
+        const serviceType = isSandbox ? 2 : 17; // SEDEX no Sandbox, Impresso Módico na Produção
+        
+        const cartPayload = {
+          service: serviceType, // 17 = Impresso módico, 2 = SEDEX
+          agency: null,
+          from: senderFrom,
+          to: {
+            name: order.name,
+            phone: (order.phone || "11999999999").replace(/\D/g, ""),
+            email: order.email,
+            document: order.buyer_cpf.replace(/\D/g, ""),
+            address: order.address_street,
+            number: order.address_number,
+            complement: order.address_complement || "",
+            district: order.address_district || "Bairro",
+            city: order.address_city,
+            state_abbr: order.address_state,
+            country_id: "BR",
+            postal_code: order.address_cep.replace(/\D/g, "")
+          },
+          products: [{ name: "Livro Físico - Corações Puros", quantity: 1, unitary_value: bookPrice }],
+          volumes: [{ width: bookWidth, height: bookHeight, length: bookLength, weight: bookWeight }],
+          options: { receipt: arEnabled, own_hand: false, collect: false, non_commercial: true, insurance_value: insuranceValue }
+        };
+
+        const cartReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/cart`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify(cartPayload) });
+        if (cartReq.ok) {
+          const cartData = await cartReq.json();
+          ticketIds.push(cartData.id);
+          trackingMap[cartData.id] = { orderId: order.id, tracking: cartData.tracking };
+        } else {
+          cartErrors.push(`Pedido ${order.id.substring(0,6)}: ${await cartReq.text()}`);
+        }
+      }
+
+      if (ticketIds.length === 0) {
+        let errorMsg = "Nenhum pedido pôde ser adicionado ao carrinho.";
+        if (cartErrors.length > 0) {
+          errorMsg += `\nErros da API: ${cartErrors[0]}`;
+        } else {
+          errorMsg += " Faltam dados como Endereço/CPF ou a etiqueta já havia sido gerada.";
+        }
+        return new Response(JSON.stringify({ error: errorMsg }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const checkoutReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/shipment/checkout`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify({ orders: ticketIds }) });
+      if (!checkoutReq.ok) return new Response(JSON.stringify({ error: "Erro no checkout em lote.", details: await checkoutReq.text() }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const generateReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/shipment/generate`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify({ orders: ticketIds }) });
+      if (!generateReq.ok) return new Response(JSON.stringify({ error: "Erro ao comandar a geração das etiquetas.", details: await generateReq.text() }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      await new Promise(r => setTimeout(r, 1000));
+
+      const printReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/shipment/print`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify({ mode: "public", orders: ticketIds }) });
+      if (!printReq.ok) return new Response(JSON.stringify({ error: "Erro ao gerar PDF em lote.", details: await printReq.text() }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      
+      const printData = await printReq.json();
+
+      // Atualizar o BD
+      for (const ticketId of ticketIds) {
+        const orderInfo = trackingMap[ticketId];
+        await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${orderInfo.orderId}`, {
+          method: "PATCH",
+          headers: { "apikey": supabaseKey, "Authorization": `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ melhor_envio_label_url: printData.url, melhor_envio_tracking: orderInfo.tracking })
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, url: printData.url, generated_count: ticketIds.length }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Rota padrão se não for /calculate, /cart, /generate-label, ou /generate-labels-bulk
     return new Response(
       JSON.stringify({ error: "Endpoint não encontrado. Use /calculate ou /cart." }),
       { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
