@@ -26,10 +26,10 @@ serve(async (req) => {
       })
     }
 
-    // Proteção contra Replay Attack (Duplicidade)
+    // Proteção contra Replay Attack (Duplicidade) e captura de dados para Antifraude
     const { data: currentOrder, error: orderError } = await supabase
       .from("orders")
-      .select("status")
+      .select("*")
       .eq("id", order_id)
       .single()
 
@@ -95,6 +95,44 @@ serve(async (req) => {
       }).eq("id", order_id)
     }
 
+    // Montar o objeto additional_info para diminuir bloqueios do Antifraude
+    const additionalInfo = {
+      items: [
+        {
+          id: "livro_coracoes_puros",
+          title: "Livro Físico - Corações Puros",
+          description: "Exemplar impresso do livro Corações Puros",
+          category_id: "books",
+          quantity: qty,
+          unit_price: Number(bookPrice.toFixed(2))
+        }
+      ],
+      payer: {
+        first_name: firstName,
+        last_name: lastName,
+        phone: {
+          area_code: currentOrder?.phone ? currentOrder.phone.substring(0, 2) : "11",
+          number: currentOrder?.phone ? currentOrder.phone.substring(2) : "999999999"
+        },
+        address: {
+          zip_code: currentOrder?.address_cep || "00000000",
+          street_name: currentOrder?.address_street || "Rua",
+          street_number: currentOrder?.address_number || "S/N"
+        }
+      },
+      shipments: {
+        receiver_address: {
+          zip_code: currentOrder?.address_cep || "00000000",
+          street_name: currentOrder?.address_street || "Rua",
+          street_number: currentOrder?.address_number || "S/N",
+          floor: currentOrder?.address_complement || "",
+          apartment: currentOrder?.address_complement || "",
+          city_name: currentOrder?.address_city || "Cidade",
+          state_name: currentOrder?.address_state || "Estado"
+        }
+      }
+    };
+
     // Se recebermos formData do Payment Brick, usamos. Senão, fallback pro PIX.
     const payload = formData ? {
       ...formData,
@@ -102,6 +140,7 @@ serve(async (req) => {
       description: "Adquirir Exemplar: Corações Puros",
       external_reference: order_id,
       notification_url: MP_WEBHOOK_URL || `${SUPABASE_URL}/functions/v1/mercado-pago-webhook`,
+      additional_info: additionalInfo,
       payer: {
         ...formData.payer,
         // Garantir que temos os dados do cliente
@@ -112,6 +151,7 @@ serve(async (req) => {
       transaction_amount: calculatedTotal,
       description: "Adquirir Exemplar: Corações Puros",
       payment_method_id: "pix",
+      additional_info: additionalInfo,
       payer: {
         email: customer_email || "cliente@exemplo.com",
         first_name: firstName,
