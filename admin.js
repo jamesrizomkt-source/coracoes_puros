@@ -82,7 +82,7 @@ window.generateLabel = async function(orderId) {
     const data = await res.json();
     if (!res.ok || data.error) {
       if (popup) popup.close();
-      alert("Erro ao gerar etiqueta: " + (data.error || "Desconhecido. Verifique se o endereço do cliente está completo."));
+      showToast("Erro ao gerar etiqueta: " + (data.error || "Desconhecido. Verifique se o endereço do cliente está completo."), "error");
       if (btn) {
         btn.innerHTML = originalText;
         btn.disabled = false;
@@ -109,7 +109,7 @@ window.generateLabel = async function(orderId) {
     
   } catch(err) {
     if (popup) popup.close();
-    alert("Erro na requisição: " + err.message);
+    showToast("Erro na requisição: " + err.message, "error");
     const btn = document.getElementById('btn-label-' + orderId);
     if (btn) {
       btn.innerHTML = '📦';
@@ -1018,8 +1018,7 @@ window.handleBulkAction = async function(action) {
     } catch (e) {
       console.error(e);
       if (popup) popup.close();
-      showToast("Falha na geração: " + e.message, "error");
-      alert("⚠️ Erro na geração em lote:\n\n" + e.message + "\n\nDica: Pedidos antigos que não têm endereço ou CPF salvos no banco não podem gerar etiquetas!");
+      showToast("⚠️ Erro na geração em lote:\n\n" + e.message + "\n\nDica: Pedidos antigos que não têm endereço ou CPF salvos no banco não podem gerar etiquetas!", "error");
       document.getElementById("bulk-actions-select").value = "";
     }
   }
@@ -1716,7 +1715,7 @@ async function saveGlobalSetting(key, value) {
 
     if (!res.ok) {
       const errorText = await res.text();
-      alert(`Erro Supabase para ${key}: ${errorText}`);
+      showToast(`Erro Supabase para ${key}: ${errorText}`, "error");
       throw new Error(`Erro na resposta REST: ${errorText}`);
     }
     
