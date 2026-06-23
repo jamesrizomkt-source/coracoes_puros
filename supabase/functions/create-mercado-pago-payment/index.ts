@@ -26,6 +26,26 @@ serve(async (req) => {
       })
     }
 
+    // Proteção contra Replay Attack (Duplicidade)
+    const { data: currentOrder, error: orderError } = await supabase
+      .from("orders")
+      .select("status")
+      .eq("id", order_id)
+      .single()
+
+    if (orderError || !currentOrder) {
+      return new Response(JSON.stringify({ error: "Order not found" }), { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 
+      })
+    }
+
+    if (currentOrder.status !== "pending") {
+      return new Response(JSON.stringify({ error: "Order is no longer pending. Payment may already be in process or paid." }), { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 
+      })
+    }
+
+
     if (!MP_ACCESS_TOKEN) {
       console.warn("MP_ACCESS_TOKEN is missing or not configured.")
     }
@@ -34,9 +54,51 @@ serve(async (req) => {
     const firstName = nameParts[0]
     const lastName = nameParts.slice(1).join(" ") || "Sobrenome"
 
+    const { data: bookPriceData, error: bookPriceError } = await supabase.rpc('get_book_price')
+    let bookPrice = 59.90
+    if (!bookPriceError && bookPriceData) {
+      bookPrice = parseFloat(String(bookPriceData).replace(/['"]/g, '').replace(',', '.'))
+    }
+    const safeShipping = Number(body.shippingPrice) || 0
+    const shippingServiceId = body.shippingServiceId || null
+    const qty = Number(body.qty) || 1
+    const calculatedTotal = (bookPrice * qty) + safeShipping
+
+    if (formData?.issuer_id) {
+      formData.issuer_id = Number(formData.issuer_id)
+    }
+
+    // Regras de validação do Mercado Pago
+    if (formData) {
+      if (formData.payment_method_id === "pix") {
+        delete formData.installments;
+        delete formData.issuer_id;
+        delete formData.token;
+      } else {
+        if (!formData.token) {
+          return new Response(JSON.stringify({ error: "Token is required for credit card" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+        }
+        if (qty === 1 && formData.installments > 1) {
+          return new Response(JSON.stringify({ error: "Installments > 1 not allowed for 1 item" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+        }
+        if (qty >= 2 && formData.installments > 3) {
+          return new Response(JSON.stringify({ error: "Installments > 3 not allowed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+        }
+      }
+    }
+
+    // Salva o preço de frete e transportadora no banco ANTES de chamar o MP
+    if (order_id) {
+      await supabase.from("orders").update({
+        shipping_price: safeShipping,
+        shipping_service_id: shippingServiceId
+      }).eq("id", order_id)
+    }
+
     // Se recebermos formData do Payment Brick, usamos. Senão, fallback pro PIX.
     const payload = formData ? {
       ...formData,
+      transaction_amount: calculatedTotal,
       description: "Adquirir Exemplar: Corações Puros",
       external_reference: order_id,
       notification_url: MP_WEBHOOK_URL || `${SUPABASE_URL}/functions/v1/mercado-pago-webhook`,
@@ -47,7 +109,7 @@ serve(async (req) => {
         last_name: formData.payer?.last_name || lastName,
       }
     } : {
-      transaction_amount: Number(total_price),
+      transaction_amount: calculatedTotal,
       description: "Adquirir Exemplar: Corações Puros",
       payment_method_id: "pix",
       payer: {
@@ -73,7 +135,7 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 })
     }
 
-    const idempotencyKey = `${order_id}_${crypto.randomUUID()}`;
+    const idempotencyKey = `order_${order_id}`;
 
     const response = await fetch("https://api.mercadopago.com/v1/payments", {
       method: "POST",
@@ -89,14 +151,32 @@ serve(async (req) => {
 
     if (!response.ok) {
       console.error("[MercadoPago Error]", data)
-      return new Response(JSON.stringify({ error: "Failed to create payment", details: data }), { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500
+      return new Response(JSON.stringify({ success: false, error: "Failed to create payment", details: data }), { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200
       })
     }
 
-    // Grava o ID de pagamento no banco de dados para segurança
-    await supabase.from("orders").update({ mp_payment_id: String(data.id) }).eq("id", order_id)
+    let mpFeeAmount = 0;
+    if (data.fee_details && data.fee_details.length > 0) {
+      mpFeeAmount = data.fee_details.reduce((acc: number, fee: any) => acc + (Number(fee.amount) || 0), 0);
+    }
+    const paymentMethod = data.payment_method_id || data.payment_type_id || "unknown";
 
+    if (data.status === "approved") {
+      await supabase.from("orders").update({ 
+        status: "paid",
+        mp_payment_id: String(data.id),
+        payment_origin: "mercadopago",
+        mp_fee_amount: mpFeeAmount,
+        payment_method: paymentMethod
+      }).eq("id", order_id)
+    } else {
+      // Grava o ID de pagamento no banco de dados para segurança
+      await supabase.from("orders").update({ 
+        mp_payment_id: String(data.id),
+        payment_method: paymentMethod
+      }).eq("id", order_id)
+    }
     const transactionData = data.point_of_interaction?.transaction_data
 
     return new Response(JSON.stringify({ 

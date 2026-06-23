@@ -3,3 +3,9 @@
 node_modules
 dist
 .env
+
+*.mjs
+check_cols.js
+fix_rls.js
+check_orders_qty.js
+fix_orders.js

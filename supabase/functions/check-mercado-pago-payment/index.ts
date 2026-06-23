@@ -17,7 +17,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Config/arguments missing" }), { headers: corsHeaders, status: 400 })
     }
 
-    // Se estiver em simulação/sem chaves
     if (!MP_ACCESS_TOKEN) {
       const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
       const { data: order } = await supabase.from("orders").select("*").eq("id", order_id).single()
@@ -31,7 +30,10 @@ serve(async (req) => {
       headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` }
     })
 
-    if (!mpRes.ok) return new Response(JSON.stringify({ error: "MP API error" }), { headers: corsHeaders, status: 400 })
+    if (!mpRes.ok) {
+      const errorText = await mpRes.text();
+      return new Response(JSON.stringify({ error: "MP API error", details: errorText }), { headers: corsHeaders, status: 400 })
+    }
     const mpData = await mpRes.json()
 
     if (mpData.status === "approved") {
@@ -39,17 +41,24 @@ serve(async (req) => {
       const { data: order } = await supabase.from("orders").select("*").eq("id", order_id).single()
 
       if (order && order.status !== "paid") {
+        let mpFeeAmount = 0;
+        if (mpData.fee_details && mpData.fee_details.length > 0) {
+          mpFeeAmount = mpData.fee_details.reduce((acc: number, fee: any) => acc + (Number(fee.amount) || 0), 0);
+        }
+        const paymentMethod = mpData.payment_method_id || mpData.payment_type_id || "unknown";
+
         await supabase.from("orders").update({
           status: "paid",
           payment_origin: "mercadopago",
-          mp_payment_id: String(payment_id)
+          mp_payment_id: String(payment_id),
+          mp_fee_amount: mpFeeAmount,
+          payment_method: paymentMethod
         }).eq("id", order_id)
       }
     }
 
     return new Response(JSON.stringify({ status: mpData.status }), { headers: corsHeaders, status: 200 })
-
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { headers: corsHeaders, status: 500 })
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { headers: corsHeaders, status: 500 })
   }
 })

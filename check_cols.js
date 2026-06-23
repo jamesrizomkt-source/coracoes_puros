@@ -7,11 +7,11 @@ const client = new Client({
 async function run() {
   await client.connect();
   const res = await client.query(`
-    SELECT column_name, data_type 
-    FROM information_schema.columns 
-    WHERE table_name = 'settings';
+    ALTER TABLE orders 
+    ADD COLUMN IF NOT EXISTS mp_fee_amount NUMERIC,
+    ADD COLUMN IF NOT EXISTS payment_method TEXT;
   `);
-  console.log("Columns:", res.rows);
+  console.log("Columns added successfully.");
   await client.end();
 }
 run().catch(console.error);

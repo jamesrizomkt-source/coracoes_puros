@@ -582,7 +582,30 @@ function updateDashboardKPIs() {
   document.getElementById("sub-orders-paid").textContent = `${paidOrders} Pago`;
   document.getElementById("sub-orders-shipped").textContent = `${shippedOrders} Enviado`;
 
+  // Faturamento (Real)
+  let revenuePaid = 0;
+  let revenuePending = 0;
+  const currentBookPrice = parseFloat(state.settings?.book_price || 59.90);
 
+  state.orders.forEach(order => {
+    const shipping = Number(order.shipping_price) || 0;
+    const totalOrderValue = currentBookPrice + shipping;
+    if (order.status === "paid" || order.status === "shipped") {
+      revenuePaid += totalOrderValue;
+    } else if (order.status === "pending") {
+      revenuePending += totalOrderValue;
+    }
+  });
+
+  const formatCurrency = val => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  
+  const elTotalRev = document.getElementById("kpi-revenue-total");
+  const elPaidRev = document.getElementById("sub-revenue-paid");
+  const elPendingRev = document.getElementById("sub-revenue-pending");
+
+  if (elTotalRev) elTotalRev.textContent = formatCurrency(revenuePaid);
+  if (elPaidRev) elPaidRev.textContent = `${formatCurrency(revenuePaid)} Confirmado`;
+  if (elPendingRev) elPendingRev.textContent = `${formatCurrency(revenuePending)} Aguardando PIX`;
 
   document.getElementById("kpi-messages-total").textContent = state.messages.length;
   document.getElementById("kpi-quiz-total").textContent = state.quizResponses.length;
@@ -644,35 +667,41 @@ function renderOrdersTable() {
   const tbody = document.getElementById("orders-tbody");
   if (!tbody) return;
 
-  // Atualizar Mini KPIs de Pedidos para transparência
-  const total = state.orders.length;
-  const pending = state.orders.filter(o => o.status === "pending").length;
-  const paid = state.orders.filter(o => o.status === "paid").length;
-  const shipped = state.orders.filter(o => o.status === "shipped").length;
+  const currentBookPrice = parseFloat(state.settings?.book_price || 49.90);
+  const mpFeeRate = parseFloat(state.settings?.mp_fee || 4.99) / 100;
 
-  const pendingPct = total > 0 ? Math.round((pending / total) * 100) : 0;
-  const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
-  const shippedPct = total > 0 ? Math.round((shipped / total) * 100) : 0;
+  // Calculando KPIs Financeiros para os Pedidos (Apenas Pagos ou Enviados geram lucro real)
+  let totalGross = 0;
+  let totalShippingCost = 0;
+  let totalMpFees = 0;
+  let totalNet = 0;
 
-  const elTotalVal = document.getElementById("order-kpi-value-total");
-  const elPendingVal = document.getElementById("order-kpi-value-pending");
-  const elPaidVal = document.getElementById("order-kpi-value-paid");
-  const elShippedVal = document.getElementById("order-kpi-value-shipped");
+  state.orders.forEach(order => {
+    if (order.status === "paid" || order.status === "shipped") {
+      const qty = Number(order.quantity) || 1;
+      const shipping = Number(order.shipping_price) || 0;
+      const gross = (currentBookPrice * qty) + shipping;
+      const mpFee = order.mp_fee_amount != null ? Number(order.mp_fee_amount) : gross * mpFeeRate;
+      const net = gross - shipping - mpFee;
+      
+      totalGross += gross;
+      totalShippingCost += shipping;
+      totalMpFees += mpFee;
+      totalNet += net;
+    }
+  });
 
-  const elTotalBdg = document.getElementById("order-kpi-badge-total");
-  const elPendingBdg = document.getElementById("order-kpi-badge-pending");
-  const elPaidBdg = document.getElementById("order-kpi-badge-paid");
-  const elShippedBdg = document.getElementById("order-kpi-badge-shipped");
+  const formatCurrency = val => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-  if (elTotalVal) elTotalVal.textContent = total;
-  if (elPendingVal) elPendingVal.textContent = pending;
-  if (elPaidVal) elPaidVal.textContent = paid;
-  if (elShippedVal) elShippedVal.textContent = shipped;
+  const elGrossVal = document.getElementById("order-kpi-value-gross");
+  const elShippingVal = document.getElementById("order-kpi-value-shipping");
+  const elFeesVal = document.getElementById("order-kpi-value-fees");
+  const elNetVal = document.getElementById("order-kpi-value-net");
 
-  if (elTotalBdg) elTotalBdg.textContent = total;
-  if (elPendingBdg) elPendingBdg.textContent = `${pendingPct}%`;
-  if (elPaidBdg) elPaidBdg.textContent = `${paidPct}%`;
-  if (elShippedBdg) elShippedBdg.textContent = `${shippedPct}%`;
+  if (elGrossVal) elGrossVal.textContent = formatCurrency(totalGross);
+  if (elShippingVal) elShippingVal.textContent = `- ${formatCurrency(totalShippingCost)}`;
+  if (elFeesVal) elFeesVal.textContent = `- ${formatCurrency(totalMpFees)}`;
+  if (elNetVal) elNetVal.textContent = formatCurrency(totalNet);
 
   const searchQuery = document.getElementById("orders-search").value.toLowerCase().trim();
   const statusFilter = document.getElementById("orders-status-filter").value;
@@ -714,6 +743,26 @@ function renderOrdersTable() {
     const cleanPhone = order.phone ? order.phone.replace(/\D/g, '') : '';
     const waLink = cleanPhone ? `https://wa.me/55${cleanPhone}` : '#';
     
+    // Cálculos por linha
+    const qty = Number(order.quantity) || 1;
+    const shipping = Number(order.shipping_price) || 0;
+    const gross = (currentBookPrice * qty) + shipping;
+    const mpFee = order.mp_fee_amount != null ? Number(order.mp_fee_amount) : gross * mpFeeRate;
+    const totalCosts = shipping + mpFee;
+    const net = gross - totalCosts;
+
+    let paymentIcon = "";
+    if (order.payment_method === "pix") {
+      paymentIcon = `<span title="Pago via PIX">💠 PIX</span>`;
+    } else if (order.payment_method === "credit_card") {
+      paymentIcon = `<span title="Pago via Cartão de Crédito">💳 Cartão</span>`;
+    } else if (order.payment_method === "ticket" || order.payment_method === "bolbradesco") {
+      paymentIcon = `<span title="Pago via Boleto">📄 Boleto</span>`;
+    }
+
+    // Se o pedido está pendente ou cancelado, mostramos o net um pouco desativado
+    const opacityStyle = (order.status === "pending" || order.status === "cancelled") ? "opacity: 0.5;" : "";
+
     // Check se já estava selecionado (manter estado ao re-renderizar)
     const isChecked = window.selectedOrders && window.selectedOrders.has(order.id) ? "checked" : "";
 
@@ -736,31 +785,50 @@ function renderOrdersTable() {
 
     return `
       <tr data-order-id="${order.id}" style="cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="openOrderModal('${order.id}')">
-        <td style="text-align: center;" onclick="event.stopPropagation()">
+        <td style="text-align: center; vertical-align: middle;" onclick="event.stopPropagation()">
           <input type="checkbox" class="order-checkbox" value="${order.id}" onchange="toggleOrderSelection(this)" ${isChecked} style="cursor: pointer; width: 16px; height: 16px;">
         </td>
-        <td style="font-weight: 700;">${escapeHTML(order.name || "Sem Nome")}</td>
-        <td>${escapeHTML(order.email)}</td>
-        <td>${escapeHTML(order.phone || "Não Informado")}</td>
-        <td>${formattedDate}</td>
-        <td onclick="event.stopPropagation()">
-          <select class="table-select" onchange="updateOrderStatus('${order.id}', this.value)" style="font-weight: 700;">
-            <option value="pending" ${order.status === "pending" ? "selected" : ""}>🟡 Pendente</option>
-            <option value="paid" ${order.status === "paid" ? "selected" : ""}>🟢 Pago</option>
-            <option value="shipped" ${order.status === "shipped" ? "selected" : ""}>🔵 Enviado</option>
-            <option value="cancelled" ${order.status === "cancelled" ? "selected" : ""}>🔴 Cancelado</option>
-          </select>
+        
+        <td>
+          <div style="font-weight: 800; color: var(--text-main);">${escapeHTML(order.name || "Sem Nome")} <span style="font-size: 11px; background: var(--accent-orange); color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${qty}x</span></div>
+          <div style="font-size: 12px; color: var(--text-muted);">${escapeHTML(order.email)}</div>
+          <div style="font-size: 11px; color: var(--accent-blue);">${escapeHTML(order.phone || "Não Informado")}</div>
         </td>
+        
+        <td style="font-size: 13px; color: var(--text-muted);">${formattedDate}</td>
+        
+        <td style="font-weight: 700; color: var(--text-main); ${opacityStyle}">
+          ${formatCurrency(gross)}<br>
+          <span style="font-size: 10px; font-weight: normal; color: var(--text-muted);">${paymentIcon}</span>
+        </td>
+        
+        <td style="font-size: 13px; color: var(--accent-red); cursor: help; ${opacityStyle}" title="Frete: ${formatCurrency(shipping)} | MP: ${formatCurrency(mpFee)}">
+          - ${formatCurrency(totalCosts)}
+        </td>
+        
+        <td style="font-weight: 800; color: var(--accent-green); ${opacityStyle}">
+          ${formatCurrency(net)}
+        </td>
+
         <td onclick="event.stopPropagation()">
-          <div class="action-buttons">
-            ${labelBtn}
-            ${cleanPhone ? `
-            <a href="${waLink}" target="_blank" class="btn-icon blue" title="Enviar WhatsApp" style="color: #10b981; border-color: rgba(16, 185, 129, 0.2);">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-            </a>` : ''}
-            <button class="btn-icon red" title="Excluir Pedido" onclick="confirmDeleteOrder('${order.id}', '${escapeHTML(order.name)}')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-            </button>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <select class="table-select" onchange="updateOrderStatus('${order.id}', this.value)" style="font-weight: 700; font-size: 12px; padding: 4px 8px; height: 32px; width: 130px;">
+              <option value="pending" ${order.status === "pending" ? "selected" : ""}>🟡 Pendente</option>
+              <option value="paid" ${order.status === "paid" ? "selected" : ""}>🟢 Pago</option>
+              <option value="shipped" ${order.status === "shipped" ? "selected" : ""}>🔵 Enviado</option>
+              <option value="cancelled" ${order.status === "cancelled" ? "selected" : ""}>🔴 Cancelado</option>
+            </select>
+            
+            <div class="action-buttons" style="justify-content: flex-start;">
+              ${labelBtn}
+              ${cleanPhone ? `
+              <a href="${waLink}" target="_blank" class="btn-icon blue" title="Enviar WhatsApp" style="color: #10b981; border-color: rgba(16, 185, 129, 0.2);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+              </a>` : ''}
+              <button class="btn-icon red" title="Excluir Pedido" onclick="confirmDeleteOrder('${order.id}', '${escapeHTML(order.name)}')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+              </button>
+            </div>
           </div>
         </td>
       </tr>

@@ -1,7 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { logError, logInfo } from '../../utils/logger';
 import { supabase } from '../../lib/supabase';
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
+import AlertModal from '../../components/AlertModal';
+
+initMercadoPago(import.meta.env.VITE_MP_PUBLIC_KEY, { locale: 'pt-BR' });
+
+const mpErrorMessages = {
+  cc_rejected_bad_filled_card_number: "Número do cartão inválido. Por favor, revise.",
+  cc_rejected_bad_filled_date: "Data de validade inválida. Por favor, revise.",
+  cc_rejected_bad_filled_other: "Algum dado do cartão está incorreto. Por favor, revise.",
+  cc_rejected_bad_filled_security_code: "Código de segurança (CVV) inválido.",
+  cc_rejected_blacklist: "Não pudemos processar seu pagamento. Tente usar o PIX.",
+  cc_rejected_call_for_authorize: "O pagamento requer autorização prévia da operadora do cartão.",
+  cc_rejected_card_disabled: "O cartão encontra-se inativo. Ligue para a administradora do seu cartão.",
+  cc_rejected_card_error: "Não conseguimos processar seu cartão. Tente outro ou use o PIX.",
+  cc_rejected_duplicated_payment: "Você já efetuou um pagamento com esse valor recentemente.",
+  cc_rejected_high_risk: "Seu pagamento foi bloqueado por segurança pelo sistema antifraude. Se for um teste, use cartões de teste ou tente de outro celular/rede. Se for uma compra real, tente usar o PIX.",
+  cc_rejected_insufficient_amount: "O seu cartão não possui saldo ou limite suficiente.",
+  cc_rejected_invalid_installments: "O número de parcelas escolhido é inválido.",
+  cc_rejected_max_attempts: "Você atingiu o limite máximo de tentativas com esse cartão.",
+  cc_rejected_other_reason: "A operadora do seu cartão recusou o pagamento."
+};
 
 export default function CheckoutWidget() {
   const [modalActive, setModalActive] = useState(false);
@@ -19,8 +39,38 @@ export default function CheckoutWidget() {
   const [showBrick, setShowBrick] = useState(false);
   const [finalPrice, setFinalPrice] = useState(0);
   const [bookPrice, setBookPrice] = useState(59.90);
+  const [qty, setQty] = useState(1);
+  const [checkoutStep, setCheckoutStep] = useState(1); // 1 = Resumo, 2 = Pagamento MP
   const [addressData, setAddressData] = useState({ street: '', district: '', city: '', state: '' });
+  const [buyerData, setBuyerData] = useState({ name: '', email: '', cpf: '' });
+  const [isPickup, setIsPickup] = useState(false);
+  const [alertData, setAlertData] = useState({ isOpen: false, message: '' });
 
+  const mpInitialization = useMemo(() => {
+    return {
+      amount: finalPrice,
+      payer: {
+        email: addressData.email,
+      },
+    };
+  }, [finalPrice, addressData.email]);
+
+  const mpCustomization = useMemo(() => {
+    return {
+      paymentMethods: {
+        creditCard: "all",
+        maxInstallments: qty >= 2 ? 3 : 1,
+        bankTransfer: "all",
+      },
+      visual: {
+        hideValueProp: qty < 2,
+        texts: {
+          valueProp: qty >= 2 ? "Em até 3x" : " ",
+          creditCardValueProp: qty >= 2 ? "Em até 3x" : " ",
+        }
+      }
+    };
+  }, [qty]);
   const loadPrice = async () => {
     try {
       const { data, error } = await supabase.rpc('get_book_price');
@@ -70,14 +120,14 @@ export default function CheckoutWidget() {
     const name = formData.get("name");
     const email = formData.get("email");
     const phone = formData.get("phone");
-    const rawCep = formData.get("cep") || "";
+    const rawCep = isPickup ? "00000000" : (formData.get("cep") || "");
     const cep = rawCep.replace(/\D/g, "");
-    const address_street = formData.get("street") || addressData.street;
-    const address_number = formData.get("number") || "";
+    const address_street = isPickup ? "Retirada Presencial" : (formData.get("street") || addressData.street);
+    const address_number = isPickup ? "SN" : (formData.get("number") || "");
     const address_complement = formData.get("complement") || "";
-    const address_district = formData.get("district") || addressData.district;
-    const address_city = formData.get("city") || addressData.city;
-    const address_state = formData.get("state") || addressData.state;
+    const address_district = isPickup ? "Localização do Vendedor" : (formData.get("district") || addressData.district);
+    const address_city = isPickup ? "Sua Cidade" : (formData.get("city") || addressData.city);
+    const address_state = isPickup ? "UF" : (formData.get("state") || addressData.state);
     const buyer_cpf = formData.get("cpf") || "";
 
     setFeedback("Processando seu pedido e calculando frete...");
@@ -86,6 +136,10 @@ export default function CheckoutWidget() {
 
     const newOrderId = crypto.randomUUID();
     setOrderId(newOrderId);
+
+    // Salvar o email no addressData para que o Brick inicialize corretamente
+    setAddressData(prev => ({ ...prev, email }));
+    setBuyerData({ name, email, cpf: buyer_cpf });
 
     try {
       const { error: dbError } = await supabase.from('orders').insert([{
@@ -101,7 +155,8 @@ export default function CheckoutWidget() {
         address_district,
         address_city,
         address_state,
-        buyer_cpf
+        buyer_cpf,
+        quantity: qty
       }]);
 
       if (dbError) throw dbError;
@@ -111,7 +166,12 @@ export default function CheckoutWidget() {
       let shippingPrice = 0;
       let shippingDetails = "";
 
-      if (cep.length === 8) {
+      if (isPickup) {
+        shippingPrice = 0;
+        setShippingOptions([{ id: "pickup", name: "Retirada Presencial (Combinar)", price: 0 }]);
+        setSelectedShipping({ id: "pickup", name: "Retirada Presencial (Combinar)", price: 0 });
+        setShippingResult("");
+      } else if (cep && cep.length === 8) {
         setShippingResult("Calculando frete...");
         try {
           const { data, error: rpcError } = await supabase.functions.invoke('melhor-envio/calculate', {
@@ -169,7 +229,7 @@ export default function CheckoutWidget() {
         }
       }
 
-      const calculatedPrice = bookPrice + shippingPrice;
+      const calculatedPrice = (bookPrice * qty) + shippingPrice;
       setFinalPrice(calculatedPrice);
       
       setSuccessState(true);
@@ -184,40 +244,101 @@ export default function CheckoutWidget() {
     }
   };
 
-  const handlePaymentSubmit = async (formData) => {
+  const handlePaymentSubmit = useCallback(async (brickParam) => {
     return new Promise(async (resolve, reject) => {
       try {
-        const { data: payData, error: payError } = await supabase.functions.invoke('create-mercado-pago-payment', {
-          body: {
-            order_id: orderId,
-            formData: formData
-          }
+        // O MP Payment Brick envia { selectedPaymentMethod, formData }
+        const formData = brickParam?.formData || brickParam;
+        const isPix = !formData?.token || formData?.payment_method_id?.toLowerCase() === "pix";
+        
+        let cleanFormData;
+        if (isPix) {
+          cleanFormData = {
+            payment_method_id: "pix",
+            payer: {
+              email: buyerData.email || formData?.payer?.email,
+              first_name: buyerData.name.split(' ')[0],
+              last_name: buyerData.name.split(' ').slice(1).join(' ') || "Sobrenome",
+              identification: {
+                type: "CPF",
+                number: buyerData.cpf.replace(/\D/g, '')
+              }
+            }
+          };
+        } else {
+          cleanFormData = {
+            ...formData,
+            payer: {
+              ...formData?.payer,
+              email: buyerData.email || formData?.payer?.email,
+              first_name: buyerData.name.split(' ')[0],
+              last_name: buyerData.name.split(' ').slice(1).join(' ') || "Sobrenome",
+              identification: {
+                type: "CPF",
+                number: buyerData.cpf.replace(/\D/g, '')
+              }
+            }
+          };
+        }
+
+        const payload = {
+          order_id: orderId,
+          formData: cleanFormData,
+          customer_name: buyerData.name,
+          customer_email: buyerData.email,
+          qty: qty,
+          shippingPrice: selectedShipping ? parseFloat(selectedShipping.price) : 0,
+          shippingServiceId: selectedShipping ? String(selectedShipping.id) : ""
+        };
+
+        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-mercado-pago-payment`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify(payload)
         });
 
-        if (payError || !payData?.success) {
-          throw new Error(payError?.message || "Erro ao processar pagamento.");
+        const payData = await res.json();
+
+        if (!res.ok || !payData?.success) {
+          let errorMsg = payData?.error || "Erro ao processar pagamento.";
+          if (payData?.details?.cause && payData.details.cause.length > 0) {
+            errorMsg = payData.details.cause[0].description;
+          } else if (payData?.details?.message) {
+            errorMsg = payData.details.message;
+          }
+          throw new Error(errorMsg);
         }
 
         if (payData.status === "approved" || payData.simulated) {
           setPaymentSuccess(true);
           resolve();
+        } else if (payData.status === "rejected") {
+          const friendlyMessage = mpErrorMessages[payData.status_detail] || "Verifique os dados do cartão, limite disponível ou tente usar o PIX.";
+          setAlertData({ isOpen: true, message: `Pagamento não concluído: ${friendlyMessage}` });
+          reject(); // Keep the Brick open for retry
         } else {
+          // Status pending (PIX)
           setPaymentData(payData);
           setShowBrick(false);
           resolve();
         }
       } catch (error) {
         logError(error, { context: "Payment Submit" });
-        alert("Erro ao processar pagamento: " + error.message);
+        setAlertData({ isOpen: true, message: "Erro detalhado do Mercado Pago: " + error.message });
         reject();
       }
     });
-  };
+  }, [orderId, qty, selectedShipping, buyerData]);
 
   useEffect(() => {
     if (!successState || !orderId || paymentSuccess || showBrick) return;
 
     let isFinished = false;
+    let mpPollingTimeout = null;
+    let mpPollingDelay = 2500;
 
     const onSuccess = () => {
       if (isFinished) return;
@@ -243,21 +364,35 @@ export default function CheckoutWidget() {
       if (data?.status === 'paid') onSuccess();
     };
 
-    const checkMpStatus = async () => {
+    const pollMpStatus = async () => {
       if (isFinished || !paymentData?.payment_id) return;
-      const { data } = await supabase.functions.invoke('check-mercado-pago-payment', {
-        body: { payment_id: paymentData.payment_id, order_id: orderId }
-      });
-      if (data?.status === 'approved') onSuccess();
+      try {
+        const { data } = await supabase.functions.invoke('check-mercado-pago-payment', {
+          body: { payment_id: paymentData.payment_id, order_id: orderId }
+        });
+        if (data?.status === 'approved') {
+          onSuccess();
+          return;
+        }
+      } catch (err) {}
+      
+      // Exponential backoff
+      if (!isFinished) {
+        mpPollingDelay = Math.min(mpPollingDelay * 1.5, 15000); // max 15s
+        mpPollingTimeout = setTimeout(pollMpStatus, mpPollingDelay);
+      }
     };
 
-    const intervalDb = setInterval(checkDbStatus, 2000);
-    const intervalMp = setInterval(checkMpStatus, 5000);
+    const intervalDb = setInterval(checkDbStatus, 3000);
+    if (paymentData?.payment_id) {
+      mpPollingTimeout = setTimeout(pollMpStatus, mpPollingDelay);
+    }
 
     return () => {
+      isFinished = true;
       supabase.removeChannel(channel);
       clearInterval(intervalDb);
-      clearInterval(intervalMp);
+      if (mpPollingTimeout) clearTimeout(mpPollingTimeout);
     };
   }, [successState, orderId, paymentData, paymentSuccess, showBrick]);
 
@@ -266,7 +401,7 @@ export default function CheckoutWidget() {
 
     if (timeLeft <= 0) {
       supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId).then(() => {
-        alert('Tempo limite de 5 minutos excedido. Por favor, tente criar um novo pedido.');
+        setAlertData({ isOpen: true, message: 'Tempo limite de 5 minutos excedido. Por favor, tente criar um novo pedido.' });
         closeModal();
       });
       return;
@@ -278,7 +413,7 @@ export default function CheckoutWidget() {
 
   const handleContactSubmit = async (e) => {
     e.preventDefault();
-    alert("Mensagem enviada!");
+    setAlertData({ isOpen: true, message: "Mensagem enviada!" });
   };
 
   useEffect(() => {
@@ -318,14 +453,24 @@ export default function CheckoutWidget() {
                 <label htmlFor="lead-phone">WhatsApp / Telefone</label>
                 <input type="tel" id="lead-phone" name="phone" required placeholder="(31) 99999-9999" />
               </div>
-              <div className="form-group">
-                <label htmlFor="lead-cep">CEP de Entrega</label>
-                <input 
-                  type="text" 
-                  id="lead-cep" 
-                  name="cep" 
-                  required 
-                  placeholder="Ex: 30130-010" 
+
+              <div className="form-group" style={{ marginTop: "16px", marginBottom: "8px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: "bold" }}>
+                  <input type="checkbox" checked={isPickup} onChange={(e) => setIsPickup(e.target.checked)} style={{ width: "18px", height: "18px" }} />
+                  Quero retirar presencialmente (Frete Grátis)
+                </label>
+              </div>
+
+              {!isPickup && (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="lead-cep">CEP de Entrega</label>
+                    <input 
+                      type="text" 
+                      id="lead-cep" 
+                      name="cep" 
+                      required 
+                      placeholder="Ex: 30130-010" 
                   maxLength="9" 
                   pattern="\d{5}-?\d{3}" 
                   title="Digite um CEP válido" 
@@ -344,38 +489,40 @@ export default function CheckoutWidget() {
                 />
               </div>
 
-              <div style={{ display: "flex", gap: "10px" }}>
-                <div className="form-group" style={{ flex: 2 }}>
-                  <label htmlFor="lead-street">Rua</label>
-                  <input type="text" id="lead-street" name="street" required value={addressData.street} onChange={(e) => setAddressData({...addressData, street: e.target.value})} placeholder="Ex: Av. Paulista" />
-                </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label htmlFor="lead-number">Número</label>
-                  <input type="text" id="lead-number" name="number" required placeholder="Ex: 1000" />
-                </div>
-              </div>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <div className="form-group" style={{ flex: 2 }}>
+                      <label htmlFor="lead-street">Rua</label>
+                      <input type="text" id="lead-street" name="street" required value={addressData.street} onChange={(e) => setAddressData({...addressData, street: e.target.value})} placeholder="Ex: Av. Paulista" />
+                    </div>
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label htmlFor="lead-number">Número</label>
+                      <input type="text" id="lead-number" name="number" required placeholder="Ex: 1000" />
+                    </div>
+                  </div>
 
-              <div style={{ display: "flex", gap: "10px" }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label htmlFor="lead-complement">Complemento</label>
-                  <input type="text" id="lead-complement" name="complement" placeholder="Apto, Bloco..." />
-                </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label htmlFor="lead-district">Bairro</label>
-                  <input type="text" id="lead-district" name="district" required value={addressData.district} onChange={(e) => setAddressData({...addressData, district: e.target.value})} placeholder="Bairro" />
-                </div>
-              </div>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label htmlFor="lead-complement">Complemento</label>
+                      <input type="text" id="lead-complement" name="complement" placeholder="Apto, Bloco..." />
+                    </div>
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label htmlFor="lead-district">Bairro</label>
+                      <input type="text" id="lead-district" name="district" required value={addressData.district} onChange={(e) => setAddressData({...addressData, district: e.target.value})} placeholder="Bairro" />
+                    </div>
+                  </div>
 
-              <div style={{ display: "flex", gap: "10px" }}>
-                <div className="form-group" style={{ flex: 2 }}>
-                  <label htmlFor="lead-city">Cidade</label>
-                  <input type="text" id="lead-city" name="city" required value={addressData.city} onChange={(e) => setAddressData({...addressData, city: e.target.value})} placeholder="Cidade" />
-                </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label htmlFor="lead-state">Estado</label>
-                  <input type="text" id="lead-state" name="state" required value={addressData.state} onChange={(e) => setAddressData({...addressData, state: e.target.value})} placeholder="SP" maxLength="2" />
-                </div>
-              </div>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <div className="form-group" style={{ flex: 2 }}>
+                      <label htmlFor="lead-city">Cidade</label>
+                      <input type="text" id="lead-city" name="city" required value={addressData.city} onChange={(e) => setAddressData({...addressData, city: e.target.value})} placeholder="Cidade" />
+                    </div>
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label htmlFor="lead-state">Estado (UF)</label>
+                      <input type="text" id="lead-state" name="state" required value={addressData.state} onChange={(e) => setAddressData({...addressData, state: e.target.value})} maxLength="2" placeholder="MG" />
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="form-group">
                 <label htmlFor="lead-cpf">Seu CPF (obrigatório para envio)</label>
@@ -396,17 +543,45 @@ export default function CheckoutWidget() {
             {!paymentSuccess ? (
               showBrick ? (
                 <>
-                  <h2 style={{ fontSize: "24px", color: "var(--blue)", marginBottom: "12px" }}>Escolha como Pagar</h2>
+                  <div style={{ display: checkoutStep === 1 ? 'block' : 'none' }}>
+                    <h2 style={{ fontSize: "24px", color: "var(--blue)", marginBottom: "12px" }}>Resumo do Pedido</h2>
                   
-                  <div style={{ background: "#f8f9fa", padding: "16px", borderRadius: "8px", marginBottom: "20px", textAlign: "left", color: "var(--blue)", border: "1px solid #e9ecef" }}>
-                    <h3 style={{ fontSize: "16px", marginBottom: "12px", borderBottom: "1px dashed #ccc", paddingBottom: "8px" }}>Resumo da Compra</h3>
+                    <div style={{ background: "#f8f9fa", padding: "16px", borderRadius: "8px", marginBottom: "20px", textAlign: "left", color: "var(--blue)", border: "1px solid #e9ecef" }}>
+                      <h3 style={{ fontSize: "16px", marginBottom: "12px", borderBottom: "1px dashed #ccc", paddingBottom: "8px" }}>Resumo da Compra</h3>
+                    
+                    {/* Controle de Quantidade */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", background: "#fff", padding: "10px", borderRadius: "6px", border: "1px solid #ddd" }}>
+                      <span style={{ fontSize: "15px", fontWeight: "bold" }}>Quantidade:</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            if (qty > 1) {
+                              setQty(qty - 1);
+                              setFinalPrice((bookPrice * (qty - 1)) + (selectedShipping ? parseFloat(selectedShipping.price) : 0));
+                            }
+                          }}
+                          style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid #ccc", background: "#fff", cursor: "pointer", fontSize: "18px", display: "grid", placeItems: "center" }}
+                        >-</button>
+                        <span style={{ fontSize: "16px", fontWeight: "bold", width: "20px", textAlign: "center" }}>{qty}</span>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setQty(qty + 1);
+                            setFinalPrice((bookPrice * (qty + 1)) + (selectedShipping ? parseFloat(selectedShipping.price) : 0));
+                          }}
+                          style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1px solid #ccc", background: "#fff", cursor: "pointer", fontSize: "18px", display: "grid", placeItems: "center" }}
+                        >+</button>
+                      </div>
+                    </div>
+
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "15px" }}>
-                      <span>Livro Corações Puros</span>
-                      <strong>R$ {bookPrice.toFixed(2).replace('.', ',')}</strong>
+                      <span>Livro Corações Puros ({qty}x)</span>
+                      <strong>R$ {(bookPrice * qty).toFixed(2).replace('.', ',')}</strong>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "15px" }}>
                       <span>Frete</span>
-                      <strong>R$ {(finalPrice - bookPrice).toFixed(2).replace('.', ',')}</strong>
+                      <strong>R$ {(selectedShipping ? parseFloat(selectedShipping.price) : 0).toFixed(2).replace('.', ',')}</strong>
                     </div>
                     {shippingResult && (
                       <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "-4px", marginBottom: "12px" }} dangerouslySetInnerHTML={{ __html: shippingResult }} />
@@ -416,7 +591,7 @@ export default function CheckoutWidget() {
                         <h4 style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Escolha o Prazo:</h4>
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                           {shippingOptions.map((opt, idx) => (
-                            <label key={idx} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px", border: selectedShipping?.id === opt.id ? "2px solid var(--blue)" : "1px solid #ccc", borderRadius: "6px", cursor: "pointer", background: selectedShipping?.id === opt.id ? "#f0f7ff" : "#fff", transition: "all 0.2s" }} onClick={() => { setSelectedShipping(opt); setFinalPrice(bookPrice + parseFloat(opt.price)); }}>
+                            <label key={idx} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px", border: selectedShipping?.id === opt.id ? "2px solid var(--blue)" : "1px solid #ccc", borderRadius: "6px", cursor: "pointer", background: selectedShipping?.id === opt.id ? "#f0f7ff" : "#fff", transition: "all 0.2s" }} onClick={() => { setSelectedShipping(opt); setFinalPrice((bookPrice * qty) + parseFloat(opt.price)); }}>
                               <input type="radio" name="shippingOpt" checked={selectedShipping?.id === opt.id} readOnly style={{ margin: 0, cursor: "pointer" }} />
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: "14px", fontWeight: "bold" }}>
@@ -437,17 +612,45 @@ export default function CheckoutWidget() {
                       <strong>Total a Pagar</strong>
                       <strong style={{ color: "#1f9d61" }}>R$ {finalPrice.toFixed(2).replace('.', ',')}</strong>
                     </div>
+                    
+                    <button 
+                      className="button button-primary"
+                      style={{ width: "100%", marginTop: "16px", cursor: "pointer", fontSize: "16px" }}
+                      onClick={() => setCheckoutStep(2)}
+                    >
+                      Ir para Pagamento
+                    </button>
+                    </div>
                   </div>
 
-                  <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                    {/* Botão Temporário enquanto as chaves do Mercado Pago não são fornecidas */}
-                    <button 
-                      className="button button-primary" 
-                      style={{ width: "100%", padding: "14px", fontSize: "16px", cursor: "pointer" }}
-                      onClick={() => handlePaymentSubmit(null)}
-                    >
-                      Concluir Pedido
-                    </button>
+                  <div style={{ display: checkoutStep === 2 ? 'block' : 'none' }}>
+                    <div style={{ display: "flex", alignItems: "center", marginBottom: "16px", paddingBottom: "16px", borderBottom: "1px solid #eee" }}>
+                      <button 
+                        onClick={() => setCheckoutStep(1)}
+                        style={{ background: "transparent", border: "none", color: "var(--blue)", cursor: "pointer", fontSize: "15px", fontWeight: "bold", padding: "8px", display: "flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <span>←</span> Voltar ao Resumo
+                      </button>
+                    </div>
+
+                    <div style={{ fontSize: "12px", color: "var(--muted)", fontStyle: "italic", textAlign: "center", marginBottom: "12px" }}>
+                      * Parcelamento no cartão: Em casos elegíveis (a partir de 2 livros).
+                    </div>
+                    
+                    <Payment
+                      key={`mp-brick-${qty}`}
+                      initialization={mpInitialization}
+                      customization={mpCustomization}
+                      onSubmit={handlePaymentSubmit}
+                    />
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '16px', color: '#1f9d61', fontSize: '13px', fontWeight: '500', background: '#f0fcf5', padding: '10px', borderRadius: '6px', border: '1px solid #c6f6d5' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      </svg>
+                      <span>Ambiente 100% Seguro. Pagamento processado pelo Mercado Pago.</span>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -460,12 +663,12 @@ export default function CheckoutWidget() {
                   <div style={{ background: "#f8f9fa", padding: "16px", borderRadius: "8px", marginBottom: "20px", textAlign: "left", color: "var(--blue)", border: "1px solid #e9ecef" }}>
                     <h3 style={{ fontSize: "16px", marginBottom: "12px", borderBottom: "1px dashed #ccc", paddingBottom: "8px" }}>Resumo da Compra</h3>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "15px" }}>
-                      <span>Livro Corações Puros</span>
-                      <strong>R$ {bookPrice.toFixed(2).replace('.', ',')}</strong>
+                      <span>Livro Corações Puros ({qty}x)</span>
+                      <strong>R$ {(bookPrice * qty).toFixed(2).replace('.', ',')}</strong>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "15px" }}>
                       <span>Frete</span>
-                      <strong>R$ {(finalPrice - bookPrice).toFixed(2).replace('.', ',')}</strong>
+                      <strong>R$ {(selectedShipping ? parseFloat(selectedShipping.price) : 0).toFixed(2).replace('.', ',')}</strong>
                     </div>
                     {shippingResult && (
                       <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "-4px", marginBottom: "12px" }} dangerouslySetInnerHTML={{ __html: shippingResult }} />
@@ -475,7 +678,7 @@ export default function CheckoutWidget() {
                         <h4 style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Escolha o Prazo:</h4>
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                           {shippingOptions.map((opt, idx) => (
-                            <label key={idx} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px", border: selectedShipping?.id === opt.id ? "2px solid var(--blue)" : "1px solid #ccc", borderRadius: "6px", cursor: "pointer", background: selectedShipping?.id === opt.id ? "#f0f7ff" : "#fff", transition: "all 0.2s" }} onClick={() => { setSelectedShipping(opt); setFinalPrice(bookPrice + parseFloat(opt.price)); }}>
+                            <label key={idx} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px", border: selectedShipping?.id === opt.id ? "2px solid var(--blue)" : "1px solid #ccc", borderRadius: "6px", cursor: "pointer", background: selectedShipping?.id === opt.id ? "#f0f7ff" : "#fff", transition: "all 0.2s" }} onClick={() => { setSelectedShipping(opt); setFinalPrice((bookPrice * qty) + parseFloat(opt.price)); }}>
                               <input type="radio" name="shippingOpt" checked={selectedShipping?.id === opt.id} readOnly style={{ margin: 0, cursor: "pointer" }} />
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: "14px", fontWeight: "bold" }}>
@@ -499,24 +702,39 @@ export default function CheckoutWidget() {
                   </div>
 
                   {paymentData?.qr_code_base64 && (
-                    <div style={{ margin: "20px 0" }}>
+                    <div style={{ margin: "20px 0", display: "flex", flexDirection: "column", alignItems: "center" }}>
                       <img 
                         src={`data:image/jpeg;base64,${paymentData.qr_code_base64}`} 
                         alt="QR Code Pix" 
-                        style={{ width: "180px", height: "180px", border: "1px solid #ddd", padding: "5px", borderRadius: "8px" }} 
+                        style={{ width: "180px", height: "180px", border: "1px solid #ddd", padding: "5px", borderRadius: "8px", marginBottom: "16px" }} 
                       />
+                      
+                      {paymentData?.qr_code && (
+                        <div style={{ width: "100%", maxWidth: "300px", textAlign: "left" }}>
+                          <label style={{ fontSize: "13px", fontWeight: "bold", color: "var(--blue)", marginBottom: "4px", display: "block" }}>Pix Copia e Cola:</label>
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <input 
+                              type="text" 
+                              readOnly 
+                              value={paymentData.qr_code} 
+                              style={{ flex: 1, padding: "8px", fontSize: "12px", border: "1px solid #ccc", borderRadius: "4px", background: "#f8f9fa", color: "var(--muted)" }}
+                            />
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(paymentData.qr_code);
+                                setAlertData({ isOpen: true, message: "Código Pix copiado!" });
+                              }}
+                              style={{ background: "var(--blue)", color: "#fff", border: "none", borderRadius: "4px", padding: "0 12px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}
+                            >
+                              Copiar
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {paymentData?.qr_code && (
-                    <div style={{ marginTop: "15px", display: "flex", gap: "8px", justifyContent: "center" }}>
-                      <input readOnly value={paymentData.qr_code} style={{ width: "70%", padding: "8px", border: "1px solid #ccc", borderRadius: "4px", fontSize: "13px" }} onClick={(e) => e.target.select()} />
-                      <button className="button button-primary" style={{ padding: "8px 16px", fontSize: "13px" }} onClick={() => {
-                        navigator.clipboard.writeText(paymentData.qr_code);
-                        alert("Código PIX copiado!");
-                      }}>Copiar</button>
-                    </div>
-                  )}
+
 
                   <p style={{ color: "var(--muted)", fontSize: "13px", marginTop: "15px" }}>
                     Aguardando confirmação do pagamento em tempo real...
@@ -538,6 +756,11 @@ export default function CheckoutWidget() {
           </div>
         )}
       </div>
+      <AlertModal 
+        isOpen={alertData.isOpen} 
+        message={alertData.message} 
+        onClose={() => setAlertData({ ...alertData, isOpen: false })} 
+      />
     </div>
   );
 }

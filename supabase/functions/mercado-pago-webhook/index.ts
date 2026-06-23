@@ -23,11 +23,52 @@ serve(async (req) => {
       try { body = JSON.parse(rawBody) } catch(e) {}
     }
 
-    const topic = body.topic || url.searchParams.get("topic") || body.type || url.searchParams.get("type")
-    const paymentId = body.resource ? body.resource.split("/").pop() : (body.data?.id || url.searchParams.get("data.id") || body.id)
+    const action = body.action || url.searchParams.get("action") || ""
+    const topic = body.topic || url.searchParams.get("topic") || body.type || url.searchParams.get("type") || ""
+    const dataIdFromUrl = url.searchParams.get("data.id")
+    
+    // Prioridade máxima recomendada pelo MP: query param data.id
+    const paymentId = dataIdFromUrl || (body.resource ? body.resource.split("/").pop() : (body.data?.id || body.id))
 
-    if (topic !== "payment" || !paymentId) {
+    const isPaymentEvent = topic === "payment" || action.startsWith("payment.") || body.type === "payment" || url.pathname.includes("payment");
+
+    if (!isPaymentEvent || !paymentId) {
       return new Response(JSON.stringify({ message: "Ignoring non-payment event." }), { headers: corsHeaders, status: 200 })
+    }
+
+    const MP_WEBHOOK_SECRET = Deno.env.get("MP_WEBHOOK_SECRET")
+    const xSignature = req.headers.get("x-signature")
+    const xRequestId = req.headers.get("x-request-id")
+
+    if (MP_WEBHOOK_SECRET && xSignature && xRequestId) {
+      const parts = xSignature.split(",")
+      let ts = ""
+      let v1 = ""
+      parts.forEach(p => {
+        const [k, v] = p.split("=")
+        if (k === "ts") ts = v
+        if (k === "v1") v1 = v
+      })
+      
+      const manifestId = dataIdFromUrl || paymentId
+      const manifest = `id:${manifestId};request-id:${xRequestId};ts:${ts};`
+      
+      const encoder = new TextEncoder()
+      const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(MP_WEBHOOK_SECRET),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      )
+      const signatureBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(manifest))
+      const signatureArray = Array.from(new Uint8Array(signatureBuffer))
+      const generatedSignature = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+      if (generatedSignature !== v1) {
+        console.error("Invalid webhook signature")
+        return new Response(JSON.stringify({ error: "Invalid signature" }), { headers: corsHeaders, status: 403 })
+      }
     }
 
     // Se estiver em modo de simulação ou sem chaves configuradas
@@ -71,12 +112,35 @@ serve(async (req) => {
         return new Response(JSON.stringify({ message: "Order already paid." }), { headers: corsHeaders, status: 200 })
       }
 
+      let mpFeeAmount = 0;
+      if (paymentInfo.fee_details && paymentInfo.fee_details.length > 0) {
+        mpFeeAmount = paymentInfo.fee_details.reduce((acc: number, fee: any) => acc + (Number(fee.amount) || 0), 0);
+      }
+      const paymentMethod = paymentInfo.payment_method_id || paymentInfo.payment_type_id || "unknown";
+
       // Efetua a baixa automática
-      await supabase.from("orders").update({ 
+      const { error: updateError } = await supabase.from("orders").update({ 
         status: "paid", 
         payment_origin: "mercadopago", 
-        mp_payment_id: String(paymentId)
+        mp_payment_id: String(paymentId),
+        mp_fee_amount: mpFeeAmount,
+        payment_method: paymentMethod
       }).eq("id", orderId)
+
+      if (updateError) {
+        console.error(`[MercadoPago Webhook] Error updating order status:`, updateError);
+        return new Response(JSON.stringify({ error: 'DB Update error' }), { headers: corsHeaders, status: 500 })
+      }
+
+      // Se houver transportadora, tenta comprar a etiqueta automaticamente
+      if (order.shipping_service_id) {
+        // Dispara de forma assíncrona (não damos await) para não prender o retorno do Webhook
+        fetch(`${SUPABASE_URL}/functions/v1/melhor-envio/buy-label`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_id: orderId })
+        }).catch(e => console.error("Falha ao engatilhar buy-label", e));
+      }
 
       return new Response(JSON.stringify({ success: true }), { headers: corsHeaders, status: 200 })
     }
