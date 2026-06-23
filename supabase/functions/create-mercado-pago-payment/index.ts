@@ -108,27 +108,30 @@ serve(async (req) => {
         }
       ],
       payer: {
-        first_name: firstName,
-        last_name: lastName,
+        first_name: customer_name.split(' ')[0],
+        last_name: customer_name.split(' ').slice(1).join(' ') || "Sobrenome",
         phone: {
-          area_code: currentOrder?.phone ? currentOrder.phone.substring(0, 2) : "11",
-          number: currentOrder?.phone ? currentOrder.phone.substring(2) : "999999999"
+          area_code: formData?.payer?.phone?.area_code || "31",
+          number: formData?.payer?.phone?.number || "999999999"
         },
         address: {
-          zip_code: currentOrder?.address_cep || "00000000",
-          street_name: currentOrder?.address_street || "Rua",
-          street_number: currentOrder?.address_number || "S/N"
-        }
+          zip_code: formData?.payer?.address?.zip_code || "00000000",
+          street_name: formData?.payer?.address?.street_name || "N/A",
+          street_number: formData?.payer?.address?.street_number || "SN"
+        },
+        registration_date: new Date().toISOString(),
+        is_first_purchase_online: true
       },
       shipments: {
+        local_pickup: body.shippingServiceId === 'pickup',
         receiver_address: {
-          zip_code: currentOrder?.address_cep || "00000000",
-          street_name: currentOrder?.address_street || "Rua",
-          street_number: currentOrder?.address_number || "S/N",
+          zip_code: formData?.payer?.address?.zip_code || currentOrder?.address_cep || "00000000",
+          street_name: formData?.payer?.address?.street_name || currentOrder?.address_street || "Rua",
+          street_number: formData?.payer?.address?.street_number || currentOrder?.address_number || "S/N",
           floor: currentOrder?.address_complement || "",
           apartment: currentOrder?.address_complement || "",
-          city_name: currentOrder?.address_city || "Cidade",
-          state_name: currentOrder?.address_state || "Estado"
+          city_name: formData?.payer?.address?.city_name || currentOrder?.address_city || "Cidade",
+          state_name: formData?.payer?.address?.state_name || currentOrder?.address_state || "Estado"
         }
       }
     };
@@ -177,8 +180,8 @@ serve(async (req) => {
 
     // A Chave de Idempotência evita cobrança duplicada caso a internet caia.
     // Porém, se o cartão for recusado e o cliente tentar um NOVO cartão, precisamos de uma chave nova (usando o token do cartão).
-    const attemptHash = formData?.token ? `_token_${formData.token.substring(0, 10)}` : (formData?.payment_method_id === 'pix' ? '_pix' : `_${crypto.randomUUID()}`);
-    const idempotencyKey = `order_${order_id}${attemptHash}`;
+    // Removed token from idempotency key as per AI feedback
+    const idempotencyKey = crypto.randomUUID();
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
