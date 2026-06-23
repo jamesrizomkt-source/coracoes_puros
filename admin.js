@@ -675,6 +675,7 @@ function renderOrdersTable() {
   let totalShippingCost = 0;
   let totalMpFees = 0;
   let totalNet = 0;
+  let totalBooksSold = 0;
 
   state.orders.forEach(order => {
     if (order.status === "paid" || order.status === "shipped") {
@@ -688,6 +689,7 @@ function renderOrdersTable() {
       totalShippingCost += shipping;
       totalMpFees += mpFee;
       totalNet += net;
+      totalBooksSold += qty;
     }
   });
 
@@ -697,11 +699,13 @@ function renderOrdersTable() {
   const elShippingVal = document.getElementById("order-kpi-value-shipping");
   const elFeesVal = document.getElementById("order-kpi-value-fees");
   const elNetVal = document.getElementById("order-kpi-value-net");
+  const elBooksVal = document.getElementById("order-kpi-value-books");
 
   if (elGrossVal) elGrossVal.textContent = formatCurrency(totalGross);
   if (elShippingVal) elShippingVal.textContent = `- ${formatCurrency(totalShippingCost)}`;
   if (elFeesVal) elFeesVal.textContent = `- ${formatCurrency(totalMpFees)}`;
   if (elNetVal) elNetVal.textContent = formatCurrency(totalNet);
+  if (elBooksVal) elBooksVal.textContent = totalBooksSold;
 
   const searchQuery = document.getElementById("orders-search").value.toLowerCase().trim();
   const statusFilter = document.getElementById("orders-status-filter").value;
