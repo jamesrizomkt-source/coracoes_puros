@@ -681,7 +681,7 @@ function renderOrdersTable() {
     if (order.status === "paid" || order.status === "shipped") {
       const qty = Number(order.quantity) || 1;
       const shipping = Number(order.shipping_price) || 0;
-      const gross = (currentBookPrice * qty) + shipping;
+      const gross = order.total_price != null ? Number(order.total_price) : ((currentBookPrice * qty) + shipping);
       const mpFee = order.mp_fee_amount != null ? Number(order.mp_fee_amount) : gross * mpFeeRate;
       const net = gross - shipping - mpFee;
       
@@ -750,7 +750,7 @@ function renderOrdersTable() {
     // Cálculos por linha
     const qty = Number(order.quantity) || 1;
     const shipping = Number(order.shipping_price) || 0;
-    const gross = (currentBookPrice * qty) + shipping;
+    const gross = order.total_price != null ? Number(order.total_price) : ((currentBookPrice * qty) + shipping);
     const mpFee = order.mp_fee_amount != null ? Number(order.mp_fee_amount) : gross * mpFeeRate;
     const totalCosts = shipping + mpFee;
     const net = gross - totalCosts;
