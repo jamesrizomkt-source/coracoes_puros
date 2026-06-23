@@ -1707,20 +1707,36 @@ async function saveGlobalSetting(key, value) {
       "apikey": SUPABASE_ANON_KEY,
       "Authorization": `Bearer ${state.token}`,
       "Content-Type": "application/json",
-      "Prefer": "resolution=merge-duplicates"
+      "Prefer": "return=representation"
     };
 
-    // Fazer um POST com a flag merge-duplicates para fazer UPSERT
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?on_conflict=key`, {
-      method: "POST",
+    // Tenta atualizar primeiro (PATCH)
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.${key}`, {
+      method: "PATCH",
       headers,
-      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
+      body: JSON.stringify({ value, updated_at: new Date().toISOString() })
     });
 
     if (!res.ok) {
       const errorText = await res.text();
-      showToast(`Erro Supabase para ${key}: ${errorText}`, "error");
+      showToast(`Erro Supabase (PATCH) para ${key}: ${errorText}`, "error");
       throw new Error(`Erro na resposta REST: ${errorText}`);
+    }
+    
+    const data = await res.json();
+    
+    // Se não atualizou nenhuma linha (array vazio), significa que a chave não existe. Então faz o POST.
+    if (!data || data.length === 0) {
+      res = await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        showToast(`Erro Supabase (POST) para ${key}: ${errorText}`, "error");
+        throw new Error(`Erro na resposta REST: ${errorText}`);
+      }
     }
     
     // Atualizar no estado local
