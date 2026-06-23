@@ -288,7 +288,8 @@ export default function CheckoutWidget() {
           customer_email: buyerData.email,
           qty: qty,
           shippingPrice: selectedShipping ? parseFloat(selectedShipping.price) : 0,
-          shippingServiceId: selectedShipping ? String(selectedShipping.id) : ""
+          shippingServiceId: selectedShipping ? String(selectedShipping.id) : "",
+          device_id: window.MP_DEVICE_SESSION_ID || ""
         };
 
         const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-mercado-pago-payment`, {

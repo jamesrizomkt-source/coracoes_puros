@@ -18,7 +18,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { order_id, total_price, customer_name, customer_email, formData } = body
+    const { order_id, total_price, customer_name, customer_email, formData, device_id } = body
 
     if (!order_id) {
       return new Response(JSON.stringify({ error: "Order ID is required" }), { 
@@ -180,13 +180,19 @@ serve(async (req) => {
     const attemptHash = formData?.token ? `_token_${formData.token.substring(0, 10)}` : (formData?.payment_method_id === 'pix' ? '_pix' : `_${crypto.randomUUID()}`);
     const idempotencyKey = `order_${order_id}${attemptHash}`;
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${MP_ACCESS_TOKEN}`,
+      "X-Idempotency-Key": idempotencyKey
+    };
+
+    if (device_id) {
+      headers["X-meli-session-id"] = device_id;
+    }
+
     const response = await fetch("https://api.mercadopago.com/v1/payments", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${MP_ACCESS_TOKEN}`,
-        "X-Idempotency-Key": idempotencyKey
-      },
+      headers,
       body: JSON.stringify(payload)
     })
 
