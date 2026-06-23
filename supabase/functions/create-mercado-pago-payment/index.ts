@@ -175,7 +175,10 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 })
     }
 
-    const idempotencyKey = `order_${order_id}`;
+    // A Chave de Idempotência evita cobrança duplicada caso a internet caia.
+    // Porém, se o cartão for recusado e o cliente tentar um NOVO cartão, precisamos de uma chave nova (usando o token do cartão).
+    const attemptHash = formData?.token ? `_token_${formData.token.substring(0, 10)}` : (formData?.payment_method_id === 'pix' ? '_pix' : `_${crypto.randomUUID()}`);
+    const idempotencyKey = `order_${order_id}${attemptHash}`;
 
     const response = await fetch("https://api.mercadopago.com/v1/payments", {
       method: "POST",
