@@ -50,10 +50,14 @@ export default function CheckoutWidget() {
     return {
       amount: finalPrice,
       payer: {
-        email: addressData.email,
+        email: buyerData.email,
+        identification: {
+          type: "CPF",
+          number: buyerData.cpf ? buyerData.cpf.replace(/\D/g, '') : ""
+        }
       },
     };
-  }, [finalPrice, addressData.email]);
+  }, [finalPrice, buyerData]);
 
   const mpCustomization = useMemo(() => {
     return {
