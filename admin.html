@@ -50,6 +50,7 @@
               placeholder="••••••••" 
               autocomplete="current-password"
             >
+            <a href="#" id="js-forgot-password-link" class="forgot-password-link">Esqueci minha senha</a>
           </div>
 
           <button class="btn btn-orange" type="submit" id="js-btn-login">
@@ -61,6 +62,60 @@
           </button>
 
           <p class="login-error" id="js-login-error" role="alert"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         STATE C: FORGOT PASSWORD FORM
+         ========================================== -->
+    <div class="login-wrapper" id="js-forgot-password-wrapper" style="display: none;">
+      <div class="glow-circle glow-1" aria-hidden="true"></div>
+      <div class="glow-circle glow-2" aria-hidden="true"></div>
+      <div class="login-card">
+        <div class="login-header">
+          <div class="login-logo" aria-hidden="true">CP</div>
+          <h1 class="login-title">Recuperar Senha</h1>
+          <p class="login-subtitle">Enviaremos um link de recuperação para seu e-mail</p>
+        </div>
+        <form id="js-forgot-password-form">
+          <div class="form-group">
+            <label class="form-label" for="forgot-email">E-mail Administrativo</label>
+            <input class="form-input" type="email" id="forgot-email" name="email" required placeholder="seuemail@exemplo.com" autocomplete="email">
+          </div>
+          <button class="btn btn-orange" type="submit" id="js-btn-send-recovery">
+            <span>Enviar Link</span>
+          </button>
+          <button class="btn btn-outline" type="button" id="js-btn-back-to-login" style="margin-top: 10px; width: 100%;">
+            <span>Voltar ao Login</span>
+          </button>
+          <p class="login-error" id="js-forgot-error" role="alert"></p>
+          <p class="login-success" id="js-forgot-success" role="alert" style="color: #4CAF50; font-size: 0.875rem; text-align: center; margin-top: 10px;"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         STATE D: SET NEW PASSWORD FORM
+         ========================================== -->
+    <div class="login-wrapper" id="js-set-password-wrapper" style="display: none;">
+      <div class="glow-circle glow-1" aria-hidden="true"></div>
+      <div class="glow-circle glow-2" aria-hidden="true"></div>
+      <div class="login-card">
+        <div class="login-header">
+          <div class="login-logo" aria-hidden="true">CP</div>
+          <h1 class="login-title">Definir Nova Senha</h1>
+          <p class="login-subtitle">Digite sua nova senha de acesso</p>
+        </div>
+        <form id="js-set-password-form">
+          <div class="form-group">
+            <label class="form-label" for="new-password">Nova Senha</label>
+            <input class="form-input" type="password" id="new-password" name="password" required placeholder="••••••••">
+          </div>
+          <button class="btn btn-orange" type="submit" id="js-btn-set-password">
+            <span>Salvar Nova Senha</span>
+          </button>
+          <p class="login-error" id="js-set-password-error" role="alert"></p>
         </form>
       </div>
     </div>

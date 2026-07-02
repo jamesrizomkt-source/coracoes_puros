@@ -121,6 +121,25 @@ window.generateLabel = async function(orderId) {
 async function initApp() {
   setupEventListeners();
   
+  // Verificar se é um retorno de recuperação de senha (hash na URL)
+  const hash = window.location.hash;
+  if (hash && hash.includes("type=recovery")) {
+    const hashParams = new URLSearchParams(hash.substring(1));
+    const accessToken = hashParams.get("access_token");
+    if (accessToken) {
+      // Esconder login e mostrar form de nova senha
+      document.getElementById("js-login-wrapper").style.display = "none";
+      document.getElementById("js-set-password-wrapper").style.display = "flex";
+      
+      // Salvar token temporário para atualizar a senha
+      state.recoveryToken = accessToken;
+      
+      // Limpar hash da URL para não poluir
+      window.history.replaceState(null, "", window.location.pathname);
+      return; // Interrompe o fluxo normal de login
+    }
+  }
+
   // Tentar restaurar sessão
   const savedToken = sessionStorage.getItem("admin_token") || localStorage.getItem("admin_token");
   const savedUser = sessionStorage.getItem("admin_user") || localStorage.getItem("admin_user");
@@ -162,10 +181,38 @@ async function verifySession() {
 // CONTROLE DE EVENTOS & LOGIN
 // ==========================================
 function setupEventListeners() {
-  // Formulário de Login
   const loginForm = document.getElementById("js-login-form");
   if (loginForm) {
     loginForm.addEventListener("submit", handleLogin);
+  }
+
+  // Formulário de Esqueci a Senha
+  const forgotLink = document.getElementById("js-forgot-password-link");
+  const forgotForm = document.getElementById("js-forgot-password-form");
+  const backToLoginBtn = document.getElementById("js-btn-back-to-login");
+  const setPasswordForm = document.getElementById("js-set-password-form");
+
+  if (forgotLink) {
+    forgotLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById("js-login-wrapper").style.display = "none";
+      document.getElementById("js-forgot-password-wrapper").style.display = "flex";
+    });
+  }
+
+  if (backToLoginBtn) {
+    backToLoginBtn.addEventListener("click", () => {
+      document.getElementById("js-forgot-password-wrapper").style.display = "none";
+      document.getElementById("js-login-wrapper").style.display = "flex";
+    });
+  }
+
+  if (forgotForm) {
+    forgotForm.addEventListener("submit", handleForgotPassword);
+  }
+
+  if (setPasswordForm) {
+    setPasswordForm.addEventListener("submit", handleSetNewPassword);
   }
 
   // Abas da Sidebar
@@ -323,6 +370,111 @@ async function handleLogin(e) {
   } finally {
     loginBtn.disabled = false;
     loginBtn.querySelector("span").textContent = "Entrar no Painel";
+  }
+}
+
+// Ação de Recuperar Senha (Enviar Email)
+async function handleForgotPassword(e) {
+  e.preventDefault();
+  const errorEl = document.getElementById("js-forgot-error");
+  const successEl = document.getElementById("js-forgot-success");
+  const sendBtn = document.getElementById("js-btn-send-recovery");
+  
+  errorEl.style.display = "none";
+  successEl.style.display = "none";
+  sendBtn.disabled = true;
+  sendBtn.querySelector("span").textContent = "Enviando...";
+
+  const email = document.getElementById("forgot-email").value.trim();
+
+  try {
+    // 1. Checar se o e-mail existe chamando a RPC segura
+    const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_email_exists`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ check_email: email })
+    });
+
+    if (rpcRes.ok) {
+      const exists = await rpcRes.json();
+      if (!exists) {
+        throw new Error("Este e-mail não está cadastrado no sistema.");
+      }
+    } else {
+      // Se houver algum erro com a RPC, logar mas não bloquear necessariamente, ou lançar erro genérico
+      console.warn("Erro ao checar e-mail, procedendo com o envio padrão...");
+    }
+
+    // 2. Disparar e-mail de recuperação
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email: email })
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error_description || data.msg || "Erro ao enviar e-mail de recuperação");
+    }
+
+    successEl.textContent = "Se este e-mail estiver cadastrado, você receberá um link para redefinir a senha em instantes.";
+    successEl.style.display = "block";
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = "block";
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.querySelector("span").textContent = "Enviar Link";
+  }
+}
+
+// Ação de Definir Nova Senha
+async function handleSetNewPassword(e) {
+  e.preventDefault();
+  const errorEl = document.getElementById("js-set-password-error");
+  const setBtn = document.getElementById("js-btn-set-password");
+  
+  errorEl.style.display = "none";
+  setBtn.disabled = true;
+  setBtn.querySelector("span").textContent = "Salvando...";
+
+  const newPassword = document.getElementById("new-password").value;
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${state.recoveryToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ password: newPassword })
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error_description || data.msg || "Erro ao redefinir a senha");
+    }
+
+    showToast("Senha redefinida com sucesso! Faça login com a nova senha.", "success");
+    
+    // Esconder modal e mostrar login normal
+    document.getElementById("js-set-password-wrapper").style.display = "none";
+    document.getElementById("js-login-wrapper").style.display = "flex";
+    state.recoveryToken = null; // limpar
+    
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = "block";
+  } finally {
+    setBtn.disabled = false;
+    setBtn.querySelector("span").textContent = "Salvar Nova Senha";
   }
 }
 

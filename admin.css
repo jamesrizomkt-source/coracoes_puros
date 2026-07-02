@@ -1283,6 +1283,32 @@ button, input, select, textarea {
 .switch-container input:checked + .switch-slider:before {
   transform: translateX(20px);
 }
+}
 
+/* FORGOT PASSWORD STYLES */
+.forgot-password-link {
+  display: block;
+  text-align: right;
+  margin-top: 5px;
+  font-size: 0.85rem;
+  color: var(--accent-orange);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
 
+.forgot-password-link:hover {
+  color: #ffb84d;
+  text-decoration: underline;
+}
 
+.btn-outline {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.4);
+}

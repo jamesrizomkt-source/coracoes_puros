@@ -5,7 +5,7 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function run() {
-  const { data, error } = await supabase.from('settings').select('*');
-  console.log('Settings in DB:', data);
+  const { data, error } = await supabase.from('profiles').select('*').limit(1);
+  console.log('Profiles in DB:', data, error);
 }
 run();
