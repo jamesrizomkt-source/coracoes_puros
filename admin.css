@@ -1283,7 +1283,6 @@ button, input, select, textarea {
 .switch-container input:checked + .switch-slider:before {
   transform: translateX(20px);
 }
-}
 
 /* FORGOT PASSWORD STYLES */
 .forgot-password-link {
