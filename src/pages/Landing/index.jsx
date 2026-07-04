@@ -45,6 +45,7 @@ export default function CheckoutWidget() {
   const [buyerData, setBuyerData] = useState({ name: '', email: '', cpf: '' });
   const [isPickup, setIsPickup] = useState(false);
   const [alertData, setAlertData] = useState({ isOpen: false, message: '' });
+  const [formStep, setFormStep] = useState(1); // 1 = Dados, 2 = Endereço
 
   const mpInitialization = useMemo(() => {
     return {
@@ -115,6 +116,7 @@ export default function CheckoutWidget() {
       setLoadingPayment(false);
       setShowBrick(false);
       setFinalPrice(0);
+      setFormStep(1);
     }, 300);
   };
 
@@ -438,6 +440,25 @@ export default function CheckoutWidget() {
     };
   }, []);
 
+  const handleNextStep = () => {
+    const nameEl = document.getElementById("lead-name");
+    const emailEl = document.getElementById("lead-email");
+    const phoneEl = document.getElementById("lead-phone");
+    const cpfEl = document.getElementById("lead-cpf");
+
+    if (nameEl && !nameEl.checkValidity()) { nameEl.reportValidity(); return; }
+    if (emailEl && !emailEl.checkValidity()) { emailEl.reportValidity(); return; }
+    if (phoneEl && !phoneEl.checkValidity()) { phoneEl.reportValidity(); return; }
+    if (cpfEl && !cpfEl.checkValidity()) { cpfEl.reportValidity(); return; }
+
+    if (isPickup) {
+      const form = document.getElementById("leadForm");
+      if (form) form.requestSubmit();
+    } else {
+      setFormStep(2);
+    }
+  };
+
   return (
     <div className={`modal-backdrop ${modalActive ? 'is-active' : ''}`} aria-hidden={!modalActive} role="dialog" onClick={(e) => { if (e.target.className.includes('modal-backdrop')) closeModal() }}>
       <div className="modal-content">
@@ -448,99 +469,113 @@ export default function CheckoutWidget() {
             <p className="eyebrow">Adquira o Livro</p>
             <h2 style={{ fontSize: "28px", color: "var(--blue)", marginBottom: "12px" }}>Garanta seu Exemplar</h2>
             <p style={{ color: "var(--muted)", marginBottom: "24px", fontSize: "15px" }}>
-              Preencha seus dados para prosseguir para o pagamento seguro.
+              {formStep === 1 ? "Etapa 1 de 2: Dados Pessoais" : "Etapa 2 de 2: Endereço de Entrega"}
             </p>
-            <form onSubmit={handleLeadSubmit}>
-              <div className="form-group">
-                <label htmlFor="lead-name">Nome Completo</label>
-                <input type="text" id="lead-name" name="name" required placeholder="Digite seu nome completo" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="lead-email">Seu E-mail</label>
-                <input type="email" id="lead-email" name="email" required placeholder="Digite seu melhor e-mail" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="lead-phone">WhatsApp / Telefone</label>
-                <input type="tel" id="lead-phone" name="phone" required placeholder="(31) 99999-9999" />
-              </div>
+            <form id="leadForm" onSubmit={handleLeadSubmit}>
+              <div style={{ display: formStep === 1 ? 'block' : 'none' }}>
+                <div className="form-group">
+                  <label htmlFor="lead-name">Nome Completo</label>
+                  <input type="text" id="lead-name" name="name" required placeholder="Digite seu nome completo" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="lead-email">Seu E-mail</label>
+                  <input type="email" id="lead-email" name="email" required placeholder="Digite seu melhor e-mail" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="lead-phone">WhatsApp / Telefone</label>
+                  <input type="tel" id="lead-phone" name="phone" required placeholder="(31) 99999-9999" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="lead-cpf">Seu CPF (obrigatório para envio)</label>
+                  <input type="text" id="lead-cpf" name="cpf" required placeholder="Ex: 000.000.000-00" maxLength="14" pattern="\d{3}\.?\d{3}\.?\d{3}-?\d{2}" title="Digite um CPF válido" />
+                </div>
 
-              <div className="form-group" style={{ marginTop: "16px", marginBottom: "8px" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: "bold" }}>
-                  <input type="checkbox" checked={isPickup} onChange={(e) => setIsPickup(e.target.checked)} style={{ width: "18px", height: "18px" }} />
-                  Quero retirar presencialmente (Frete Grátis)
-                </label>
-              </div>
+                <div className="form-group" style={{ marginTop: "16px", marginBottom: "16px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: "bold" }}>
+                    <input type="checkbox" checked={isPickup} onChange={(e) => setIsPickup(e.target.checked)} style={{ width: "18px", height: "18px" }} />
+                    Quero retirar presencialmente (Frete Grátis)
+                  </label>
+                </div>
 
-              {!isPickup && (
-                <>
-                  <div className="form-group">
-                    <label htmlFor="lead-cep">CEP de Entrega</label>
-                    <input 
-                      type="text" 
-                      id="lead-cep" 
-                      name="cep" 
-                      required 
-                      placeholder="Ex: 30130-010" 
-                  maxLength="9" 
-                  pattern="\d{5}-?\d{3}" 
-                  title="Digite um CEP válido" 
-                  onChange={async (e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    if (val.length === 8) {
-                      try {
-                        const res = await fetch(`https://viacep.com.br/ws/${val}/json/`);
-                        const data = await res.json();
-                        if (!data.erro) {
-                          setAddressData({ street: data.logradouro, district: data.bairro, city: data.localidade, state: data.uf });
-                        }
-                      } catch(err) {}
-                    }
-                  }}
-                />
+                <button type="button" onClick={handleNextStep} className="button button-primary" style={{ width: "100%", marginTop: "10px", cursor: "pointer" }}>
+                  {isPickup ? "Confirmar e Prosseguir" : "Avançar para Entrega"}
+                </button>
               </div>
 
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <div className="form-group" style={{ flex: 2 }}>
-                      <label htmlFor="lead-street">Rua</label>
-                      <input type="text" id="lead-street" name="street" required value={addressData.street} onChange={(e) => setAddressData({...addressData, street: e.target.value})} placeholder="Ex: Av. Paulista" />
+              <div style={{ display: formStep === 2 ? 'block' : 'none' }}>
+                {!isPickup && (
+                  <>
+                    <div className="form-group">
+                      <label htmlFor="lead-cep">CEP de Entrega</label>
+                      <input 
+                        type="text" 
+                        id="lead-cep" 
+                        name="cep" 
+                        required={!isPickup && formStep === 2}
+                        placeholder="Ex: 30130-010" 
+                        maxLength="9" 
+                        pattern="\d{5}-?\d{3}" 
+                        title="Digite um CEP válido" 
+                        onChange={async (e) => {
+                          const val = e.target.value.replace(/\D/g, "");
+                          if (val.length === 8) {
+                            try {
+                              const res = await fetch(`https://viacep.com.br/ws/${val}/json/`);
+                              const data = await res.json();
+                              if (!data.erro) {
+                                setAddressData({ street: data.logradouro, district: data.bairro, city: data.localidade, state: data.uf });
+                              }
+                            } catch(err) {}
+                          }
+                        }}
+                      />
                     </div>
-                    <div className="form-group" style={{ flex: 1 }}>
-                      <label htmlFor="lead-number">Número</label>
-                      <input type="text" id="lead-number" name="number" required placeholder="Ex: 1000" />
-                    </div>
-                  </div>
 
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <div className="form-group" style={{ flex: 1 }}>
-                      <label htmlFor="lead-complement">Complemento</label>
-                      <input type="text" id="lead-complement" name="complement" placeholder="Apto, Bloco..." />
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <div className="form-group" style={{ flex: 2 }}>
+                        <label htmlFor="lead-street">Rua</label>
+                        <input type="text" id="lead-street" name="street" required={!isPickup && formStep === 2} value={addressData.street} onChange={(e) => setAddressData({...addressData, street: e.target.value})} placeholder="Ex: Av. Paulista" />
+                      </div>
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label htmlFor="lead-number">Número</label>
+                        <input type="text" id="lead-number" name="number" required={!isPickup && formStep === 2} placeholder="Ex: 1000" />
+                      </div>
                     </div>
-                    <div className="form-group" style={{ flex: 1 }}>
-                      <label htmlFor="lead-district">Bairro</label>
-                      <input type="text" id="lead-district" name="district" required value={addressData.district} onChange={(e) => setAddressData({...addressData, district: e.target.value})} placeholder="Bairro" />
-                    </div>
-                  </div>
 
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <div className="form-group" style={{ flex: 2 }}>
-                      <label htmlFor="lead-city">Cidade</label>
-                      <input type="text" id="lead-city" name="city" required value={addressData.city} onChange={(e) => setAddressData({...addressData, city: e.target.value})} placeholder="Cidade" />
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label htmlFor="lead-complement">Complemento</label>
+                        <input type="text" id="lead-complement" name="complement" placeholder="Apto, Bloco..." />
+                      </div>
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label htmlFor="lead-district">Bairro</label>
+                        <input type="text" id="lead-district" name="district" required={!isPickup && formStep === 2} value={addressData.district} onChange={(e) => setAddressData({...addressData, district: e.target.value})} placeholder="Bairro" />
+                      </div>
                     </div>
-                    <div className="form-group" style={{ flex: 1 }}>
-                      <label htmlFor="lead-state">Estado (UF)</label>
-                      <input type="text" id="lead-state" name="state" required value={addressData.state} onChange={(e) => setAddressData({...addressData, state: e.target.value})} maxLength="2" placeholder="MG" />
-                    </div>
-                  </div>
-                </>
-              )}
 
-              <div className="form-group">
-                <label htmlFor="lead-cpf">Seu CPF (obrigatório para envio)</label>
-                <input type="text" id="lead-cpf" name="cpf" required placeholder="Ex: 000.000.000-00" maxLength="14" pattern="\d{3}\.?\d{3}\.?\d{3}-?\d{2}" title="Digite um CPF válido" />
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <div className="form-group" style={{ flex: 2 }}>
+                        <label htmlFor="lead-city">Cidade</label>
+                        <input type="text" id="lead-city" name="city" required={!isPickup && formStep === 2} value={addressData.city} onChange={(e) => setAddressData({...addressData, city: e.target.value})} placeholder="Cidade" />
+                      </div>
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label htmlFor="lead-state">Estado (UF)</label>
+                        <input type="text" id="lead-state" name="state" required={!isPickup && formStep === 2} value={addressData.state} onChange={(e) => setAddressData({...addressData, state: e.target.value})} maxLength="2" placeholder="MG" />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+                  <button type="button" onClick={() => setFormStep(1)} className="button button-secondary" style={{ flex: 1, cursor: "pointer", background: "#f8f9fa", color: "var(--blue)" }}>
+                    Voltar
+                  </button>
+                  <button type="submit" className="button button-primary" style={{ flex: 2, cursor: "pointer" }} disabled={loadingPayment}>
+                    {loadingPayment ? "Calculando frete..." : "Confirmar e Prosseguir"}
+                  </button>
+                </div>
               </div>
-              <button type="submit" className="button button-primary" style={{ width: "100%", marginTop: "10px", cursor: "pointer" }} disabled={loadingPayment}>
-                {loadingPayment ? "Calculando frete..." : "Confirmar e Prosseguir"}
-              </button>
+
               {feedback && (
                 <p className={`form-feedback ${isError ? 'is-error' : ''}`} style={{ marginTop: "14px", textAlign: "center", fontWeight: "700" }}>
                   {feedback}
