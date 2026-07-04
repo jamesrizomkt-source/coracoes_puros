@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
 import AlertModal from '../../components/AlertModal';
 
-initMercadoPago(import.meta.env.VITE_MP_PUBLIC_KEY, { locale: 'pt-BR' });
+initMercadoPago(import.meta.env.VITE_MP_PUBLIC_KEY || "APP_USR-2020a5c1-8647-4afd-a2e5-22481b030e4a", { locale: 'pt-BR' });
 
 const mpErrorMessages = {
   cc_rejected_bad_filled_card_number: "Número do cartão inválido. Por favor, revise.",
@@ -296,11 +296,11 @@ export default function CheckoutWidget() {
           device_id: window.MP_DEVICE_SESSION_ID || ""
         };
 
-        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-mercado-pago-payment`, {
+        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL || "https://lmdawrnbnnrnmxbrmgak.supabase.co"}/functions/v1/create-mercado-pago-payment`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtZGF3cm5ibm5ybm14YnJtZ2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc4NDIsImV4cCI6MjA5NDY2Mzg0Mn0.tPPjz7YGWL3u8UHtMG65_p3KtoH6ZiiNdzUxfOXkjbs"}`
           },
           body: JSON.stringify(payload)
         });
