@@ -247,32 +247,42 @@ const modalBodySuccess = document.getElementById("js-modal-body-success");
 
 const openModal = (e) => {
   if (e) e.preventDefault();
-  buyModal.classList.add("is-active");
-  buyModal.setAttribute("aria-hidden", "false");
+  if (buyModal) {
+    buyModal.classList.add("is-active");
+    buyModal.setAttribute("aria-hidden", "false");
+  }
   document.body.style.overflow = "hidden"; // Desativa scroll da página de fundo
 };
 window.openVanillaModal = openModal;
 
 const closeModal = () => {
-  buyModal.classList.remove("is-active");
-  buyModal.setAttribute("aria-hidden", "true");
+  if (buyModal) {
+    buyModal.classList.remove("is-active");
+    buyModal.setAttribute("aria-hidden", "true");
+  }
   document.body.style.overflow = ""; // Reativa scroll
   // Reseta estado do formulário após fechamento da animação
   setTimeout(() => {
-    leadForm.reset();
-    leadFeedback.textContent = "";
-    leadFeedback.className = "form-feedback";
-    modalBodyForm.style.display = "block";
-    modalBodySuccess.style.display = "none";
+    if (leadForm) leadForm.reset();
+    if (leadFeedback) {
+      leadFeedback.textContent = "";
+      leadFeedback.className = "form-feedback";
+    }
+    if (modalBodyForm) modalBodyForm.style.display = "block";
+    if (modalBodySuccess) modalBodySuccess.style.display = "none";
   }, 300);
 };
 
 // Modal Vanilla desativado. O React (main.jsx) agora escuta os cliques nestes botões.
 // buyTriggers.forEach(trigger => trigger.addEventListener("click", openModal));
-modalClose.addEventListener("click", closeModal);
-buyModal.addEventListener("click", (e) => {
-  if (e.target === buyModal) closeModal();
-});
+if (modalClose) {
+  modalClose.addEventListener("click", closeModal);
+}
+if (buyModal) {
+  buyModal.addEventListener("click", (e) => {
+    if (e.target === buyModal) closeModal();
+  });
+}
 
 // Envio do formulário de Pedido para o Supabase
 if (leadForm) {
