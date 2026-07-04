@@ -423,14 +423,19 @@ export default function CheckoutWidget() {
 
   useEffect(() => {
     const handleOpen = (e) => {
-      e.preventDefault();
+      if (e) e.preventDefault();
       openModal();
     };
     
+    window.openCheckoutModal = handleOpen;
+
     const triggers = document.querySelectorAll('[data-buy-trigger]');
     triggers.forEach(t => t.addEventListener('click', handleOpen));
 
-    return () => triggers.forEach(t => t.removeEventListener('click', handleOpen));
+    return () => {
+      triggers.forEach(t => t.removeEventListener('click', handleOpen));
+      delete window.openCheckoutModal;
+    };
   }, []);
 
   return (

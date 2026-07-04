@@ -27,8 +27,15 @@ serve(async (req) => {
 
     // Supabase Database Webhook (INSERT no banco)
     if (type === "INSERT" && record) {
-      const { name, email, phone, status } = record;
-      finalMessage = `<b>🎉 Novo Pedido Recebido!</b>\n\n<b>Nome:</b> ${name || 'N/A'}\n<b>Email:</b> ${email || 'N/A'}\n<b>Telefone:</b> ${phone || 'N/A'}\n<b>Status:</b> ${status || 'N/A'}`;
+      if (table === "quiz_responses") {
+        finalMessage = `<b>🧠 Novo Quiz Respondido!</b>\n\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Pontuação:</b> ${record.score || 0}/${record.total_questions || 5}`;
+      } else if (table === "messages") {
+        finalMessage = `<b>📩 Nova Mensagem de Contato!</b>\n\n<b>Nome:</b> ${record.name || 'N/A'}\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Mensagem:</b> ${record.message || 'N/A'}`;
+      } else if (table === "orders") {
+        finalMessage = `<b>🎉 Novo Pedido Recebido!</b>\n\n<b>Nome:</b> ${record.name || 'N/A'}\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Telefone:</b> ${record.phone || 'N/A'}\n<b>Status:</b> ${record.status || 'N/A'}`;
+      } else {
+        finalMessage = `<b>🔔 Novo Registro (${table || 'Desconhecido'})!</b>\n<pre>${JSON.stringify(record, null, 2)}</pre>`;
+      }
     }
 
     if (!finalMessage) {
