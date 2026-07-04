@@ -29,7 +29,7 @@
         <a href="#autora">Autora</a>
         <a href="#detalhes">Detalhes</a>
         <a href="#contato">Contato</a>
-        <a class="nav-cta" href="#comprar" data-buy-trigger onclick="if(window.openCheckoutModal) window.openCheckoutModal(event); return false;">Comprar</a>
+        <a class="nav-cta" href="#comprar" data-buy-trigger onclick="if(window.openCheckoutModal) { window.openCheckoutModal(event); } else if (window.openVanillaModal) { window.openVanillaModal(event); } return false;">Comprar</a>
       </nav>
     </header>
 
@@ -48,7 +48,7 @@
             espiritual, moral e civilizatório.
           </p>
           <div class="hero-actions" aria-label="Ações principais">
-            <a class="button button-primary" href="#comprar" data-buy-trigger onclick="if(window.openCheckoutModal) window.openCheckoutModal(event); return false;">Garanta seu exemplar</a>
+            <a class="button button-primary" href="#comprar" data-buy-trigger onclick="if(window.openCheckoutModal) { window.openCheckoutModal(event); } else if (window.openVanillaModal) { window.openVanillaModal(event); } return false;">Garanta seu exemplar</a>
             <a class="button button-secondary" href="#sobre">Conheça o livro</a>
           </div>
         </div>
@@ -286,7 +286,7 @@
               comprometidas com a defesa da vida e da infância.
             </p>
           </div>
-          <a class="button button-primary button-large" href="#comprar" data-buy-trigger onclick="if(window.openCheckoutModal) window.openCheckoutModal(event); return false;">
+          <a class="button button-primary button-large" href="#comprar" data-buy-trigger onclick="if(window.openCheckoutModal) { window.openCheckoutModal(event); } else if (window.openVanillaModal) { window.openVanillaModal(event); } return false;">
             Comprar agora
           </a>
         </div>

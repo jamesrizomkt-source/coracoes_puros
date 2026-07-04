@@ -251,6 +251,7 @@ const openModal = (e) => {
   buyModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden"; // Desativa scroll da página de fundo
 };
+window.openVanillaModal = openModal;
 
 const closeModal = () => {
   buyModal.classList.remove("is-active");
