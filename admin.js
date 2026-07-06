@@ -1184,7 +1184,7 @@ window.handleBulkAction = async function(action) {
 };
 
 // Ação de Atualização de Status de Pedido Inline
-async function updateOrderStatus(orderId, newStatus) {
+window.updateOrderStatus = async function(orderId, newStatus) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
       method: "PATCH",
@@ -1224,7 +1224,7 @@ async function updateOrderStatus(orderId, newStatus) {
 }
 
 // Excluir Pedido
-function confirmDeleteOrder(orderId, name) {
+window.confirmDeleteOrder = function(orderId, name) {
   showConfirmModal(
     "Excluir Pedido",
     `Deseja realmente remover o pedido de "${name}" permanentemente?`,
@@ -1323,7 +1323,7 @@ function renderMessagesList() {
 }
 
 // Excluir Mensagem
-function confirmDeleteMessage(msgId, senderName) {
+window.confirmDeleteMessage = function(msgId, senderName) {
   showConfirmModal(
     "Excluir Mensagem",
     `Deseja realmente remover permanentemente a mensagem de "${senderName}"?`,
@@ -1655,7 +1655,7 @@ function renderUsersTable() {
 }
 
 // Alteração de Permissões de Usuários
-async function updateUserRole(userId, newRole) {
+window.updateUserRole = async function(userId, newRole) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
       method: "PATCH",
@@ -1685,7 +1685,7 @@ async function updateUserRole(userId, newRole) {
 }
 
 // Confirmação para Remover Perfil
-function confirmDeleteUser(userId, name, email) {
+window.confirmDeleteUser = function(userId, name, email) {
   showConfirmModal(
     "Remover Acesso do Usuário",
     `Deseja realmente remover o perfil administrativo de "${name}" (${email})? Ele perderá todos os acessos imediatamente.`,
