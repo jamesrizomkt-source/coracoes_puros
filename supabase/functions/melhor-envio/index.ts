@@ -399,9 +399,21 @@ serve(async (req) => {
       
       const serviceType = order.shipping_service_id ? Number(order.shipping_service_id) : (isSandbox ? 2 : 17);
       
+      let agencyId = null;
+      if (![1, 2, 17, 43].includes(serviceType)) {
+        try {
+          const agenciesReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/shipment/agencies`, { headers: { "Accept": "application/json" } });
+          const agencies = await agenciesReq.json();
+          const validAgency = agencies.find((a: any) => a.services && a.services.some((s: any) => s.id === serviceType));
+          if (validAgency) agencyId = validAgency.id;
+        } catch (e) {
+          console.error("Erro ao buscar agência", e);
+        }
+      }
+      
       const cartPayload = {
         service: serviceType,
-        agency: null,
+        agency: agencyId,
         from: senderFrom,
         to: {
           name: order.name,
@@ -485,9 +497,21 @@ serve(async (req) => {
         
         const serviceType = order.shipping_service_id ? Number(order.shipping_service_id) : (isSandbox ? 2 : 17);
         
+        let agencyId = null;
+        if (![1, 2, 17, 43].includes(serviceType)) {
+          try {
+            const agenciesReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/shipment/agencies`, { headers: { "Accept": "application/json" } });
+            const agencies = await agenciesReq.json();
+            const validAgency = agencies.find((a: any) => a.services && a.services.some((s: any) => s.id === serviceType));
+            if (validAgency) agencyId = validAgency.id;
+          } catch (e) {
+            console.error("Erro ao buscar agência", e);
+          }
+        }
+        
         const cartPayload = {
           service: serviceType,
-          agency: null,
+          agency: agencyId,
           from: senderFrom,
           to: {
             name: order.name,
