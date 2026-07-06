@@ -397,10 +397,10 @@ serve(async (req) => {
       const senderFrom = await getSenderData();
       const insuranceValue = insuranceEnabled ? bookPrice : 0;
       
-      const serviceType = isSandbox ? 2 : 17; // SEDEX no Sandbox, Impresso Módico na Produção
+      const serviceType = order.shipping_service_id ? Number(order.shipping_service_id) : (isSandbox ? 2 : 17);
       
       const cartPayload = {
-        service: serviceType, // 17 = Impresso módico, 2 = SEDEX
+        service: serviceType,
         agency: null,
         from: senderFrom,
         to: {
@@ -483,10 +483,10 @@ serve(async (req) => {
 
         const insuranceValue = insuranceEnabled ? bookPrice : 0;
         
-        const serviceType = isSandbox ? 2 : 17; // SEDEX no Sandbox, Impresso Módico na Produção
+        const serviceType = order.shipping_service_id ? Number(order.shipping_service_id) : (isSandbox ? 2 : 17);
         
         const cartPayload = {
-          service: serviceType, // 17 = Impresso módico, 2 = SEDEX
+          service: serviceType,
           agency: null,
           from: senderFrom,
           to: {
