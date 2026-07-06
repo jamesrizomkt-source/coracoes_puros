@@ -128,7 +128,7 @@ serve(async (req) => {
             height: bookHeight,
             length: bookLength,
             weight: bookWeight,
-            ...(insuranceValue > 0 ? { insurance_value: insuranceValue } : {}),
+            insurance_value: bookPrice,
             quantity: 1,
           }
         ],
@@ -136,7 +136,7 @@ serve(async (req) => {
           receipt: arEnabled, // Aplicação da regra de Aviso de Recebimento (AR) do ADM
           own_hand: false,
           collect: false,
-          ...(insuranceValue > 0 ? { insurance_value: insuranceValue } : {})
+          insurance_value: bookPrice
         }
       };
 
@@ -274,7 +274,7 @@ serve(async (req) => {
           own_hand: false,
           collect: false,
           non_commercial: true, // Declaração de conteúdo não comercial para livros
-          ...(insuranceValue > 0 ? { insurance_value: insuranceValue } : {}) // Aplicação de Seguro Automático
+          insurance_value: bookPrice // Aplicação de Seguro Automático
         }
       };
 
@@ -419,7 +419,7 @@ serve(async (req) => {
         },
         products: [{ name: "Livro Físico - Corações Puros", quantity: 1, unitary_value: bookPrice }],
         volumes: [{ width: bookWidth, height: bookHeight, length: bookLength, weight: bookWeight }],
-        options: { receipt: arEnabled, own_hand: false, collect: false, non_commercial: true, ...(insuranceValue > 0 ? { insurance_value: insuranceValue } : {}) }
+        options: { receipt: arEnabled, own_hand: false, collect: false, non_commercial: true, insurance_value: bookPrice }
       };
 
       const cartReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/cart`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify(cartPayload) });
@@ -505,7 +505,7 @@ serve(async (req) => {
           },
           products: [{ name: "Livro Físico - Corações Puros", quantity: 1, unitary_value: bookPrice }],
           volumes: [{ width: bookWidth, height: bookHeight, length: bookLength, weight: bookWeight }],
-          options: { receipt: arEnabled, own_hand: false, collect: false, non_commercial: true, ...(insuranceValue > 0 ? { insurance_value: insuranceValue } : {}) }
+          options: { receipt: arEnabled, own_hand: false, collect: false, non_commercial: true, insurance_value: bookPrice }
         };
 
         const cartReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/cart`, { method: "POST", headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${meToken}` }, body: JSON.stringify(cartPayload) });
@@ -618,7 +618,7 @@ serve(async (req) => {
         },
         products: [{ name: "Livro Físico - Corações Puros", quantity: 1, unitary_value: bookPrice }],
         volumes: [{ width: bookWidth, height: bookHeight, length: bookLength, weight: bookWeight }],
-        options: { receipt: arEnabled, own_hand: false, collect: false, non_commercial: true, ...(bookPrice > 0 ? { insurance_value: bookPrice } : {}) }
+        options: { receipt: arEnabled, own_hand: false, collect: false, non_commercial: true, insurance_value: bookPrice }
       };
 
       const cartReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/cart`, { 
