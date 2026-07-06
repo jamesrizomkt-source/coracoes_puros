@@ -634,18 +634,20 @@ async function fetchAllData(forceRefresh = false, isBackground = false) {
     const ts = new Date().getTime();
 
     // Fazer requisições em paralelo para desempenho premium
-    const [ordersRes, messagesRes, quizRes, profilesRes, settingsRes] = await Promise.all([
+    const [ordersRes, messagesRes, quizRes, profilesRes, settingsRes, pageViewsRes] = await Promise.all([
       fetch(`${SUPABASE_URL}/rest/v1/orders?order=created_at.desc`, fetchOpts),
       fetch(`${SUPABASE_URL}/rest/v1/messages?order=created_at.desc`, fetchOpts),
       fetch(`${SUPABASE_URL}/rest/v1/quiz_responses?order=created_at.desc`, fetchOpts),
       fetch(`${SUPABASE_URL}/rest/v1/profiles?order=name.asc`, fetchOpts),
-      fetch(`${SUPABASE_URL}/rest/v1/settings`, fetchOpts)
+      fetch(`${SUPABASE_URL}/rest/v1/settings`, fetchOpts),
+      fetch(`${SUPABASE_URL}/rest/v1/page_views`, fetchOpts)
     ]);
 
     if (ordersRes.ok) state.orders = await ordersRes.json();
     if (messagesRes.ok) state.messages = await messagesRes.json();
     if (quizRes.ok) state.quizResponses = await quizRes.json();
     if (profilesRes.ok) state.users = await profilesRes.json();
+    if (pageViewsRes && pageViewsRes.ok) state.pageViews = await pageViewsRes.json();
     
     if (settingsRes.ok) {
       const settingsArray = await settingsRes.json();
@@ -763,17 +765,18 @@ function updateDashboardKPIs() {
   if (elPendingRev) elPendingRev.textContent = `${formatCurrency(revenuePending)} Aguardando PIX`;
 
   document.getElementById("kpi-messages-total").textContent = state.messages.length;
-  document.getElementById("kpi-quiz-total").textContent = state.quizResponses.length;
 
-  // Calcular média de acerto do quiz
-  let avgPercent = 0;
+  document.getElementById("kpi-quiz-total").textContent = state.quizResponses.length;
   if (state.quizResponses.length > 0) {
-    const totalScore = state.quizResponses.reduce((acc, q) => acc + q.score, 0);
-    const totalQuestions = state.quizResponses.reduce((acc, q) => acc + q.total_questions, 0);
-    avgPercent = totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0;
+    const avgScore = state.quizResponses.reduce((acc, q) => acc + (q.score / Math.max(1, q.total_questions)), 0) / state.quizResponses.length;
+    document.getElementById("sub-quiz-avg-score").textContent = `Média de ${Math.round(avgScore * 100)}% acertos`;
   }
 
-  document.getElementById("sub-quiz-avg-score").textContent = `Média de ${avgPercent}% acertos`;
+  if (state.pageViews && document.getElementById("kpi-page-views-total")) {
+    document.getElementById("kpi-page-views-total").textContent = state.pageViews.length;
+    const uniqueSessions = new Set(state.pageViews.map(pv => pv.session_id)).size;
+    document.getElementById("sub-page-views-unique").textContent = `${uniqueSessions} Visitantes Únicos`;
+  }
 
   // Atualizar visualização do gráfico circular do Dashboard
   const circleProgress = document.getElementById("js-dash-circle-progress");

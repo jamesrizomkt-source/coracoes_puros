@@ -30,6 +30,35 @@ const SUPABASE_URL = "https://lmdawrnbnnrnmxbrmgak.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtZGF3cm5ibm5ybm14YnJtZ2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc4NDIsImV4cCI6MjA5NDY2Mzg0Mn0.tPPjz7YGWL3u8UHtMG65_p3KtoH6ZiiNdzUxfOXkjbs";
 
 // ==========================================
+// RASTREAMENTO DE ACESSO (PAGE VIEWS)
+// ==========================================
+try {
+  const sessionId = sessionStorage.getItem("cp_session_id") || (() => {
+    const s = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+    sessionStorage.setItem("cp_session_id", s);
+    return s;
+  })();
+
+  fetch(`${SUPABASE_URL}/rest/v1/page_views`, {
+    method: "POST",
+    headers: {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=minimal"
+    },
+    body: JSON.stringify({
+      session_id: sessionId,
+      url: window.location.pathname,
+      referrer: document.referrer,
+      user_agent: navigator.userAgent
+    })
+  }).catch(() => {});
+} catch (e) {
+  // Ignora erros de rastreamento para não interferir na experiência do usuário
+}
+
+// ==========================================
 // CONTROLE DO QUIZ & PERSISTÊNCIA
 // ==========================================
 const quizQuestions = [
