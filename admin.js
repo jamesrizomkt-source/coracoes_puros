@@ -1211,10 +1211,12 @@ async function updateOrderStatus(orderId, newStatus) {
         renderOrdersTable(); // Re-renderizar a tabela para exibir ou esconder o botão de etiqueta
       }
     } else {
-      throw new Error("Erro na resposta da API.");
+      const errText = await res.text();
+      throw new Error(`Erro HTTP ${res.status}: ${errText}`);
     }
   } catch (err) {
     console.error("Erro ao atualizar status do pedido:", err);
+    alert("ERRO CAPTURADO: " + err.message + "\n\nPor favor, copie ou tire um print desta mensagem e envie para o suporte!");
     showToast("Não foi possível atualizar o status do pedido.", "error");
     renderOrdersTable();
   }
