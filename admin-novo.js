@@ -1216,7 +1216,7 @@ async function updateOrderStatus(orderId, newStatus) {
     }
   } catch (err) {
     console.error("Erro ao atualizar status do pedido:", err);
-    fetch("https://coracoes.requestcatcher.com/error?msg=" + encodeURIComponent(err.message));
+    alert("ERRO CAPTURADO: " + err.message + "\n\nPor favor, copie ou tire um print desta mensagem e envie para o suporte!");
     showToast("Não foi possível atualizar o status do pedido.", "error");
     renderOrdersTable();
   }
