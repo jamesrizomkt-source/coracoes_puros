@@ -6,6 +6,7 @@
     <meta name="description" content="Painel Administrativo para gerenciamento do site Corações Puros de Alê Portela.">
     <title>Painel Administrativo | Corações Puros</title>
     <link rel="stylesheet" href="admin.css?v=20260518">
+    <link rel="icon" type="image/png" href="favicon.png">
   </head>
   <body>
     <!-- TOAST NOTIFICATIONS CONTAINER -->
@@ -284,21 +285,74 @@
               </div>
             </div>
 
-            <!-- ACESSOS (PAGE VIEWS) -->
-            <div class="kpi-card" style="border: 1px solid rgba(255, 255, 255, 0.1);">
-              <div class="kpi-header">
-                <span class="kpi-title">Acessos à Página</span>
-                <div class="kpi-icon-wrapper" aria-hidden="true" style="background: rgba(255, 255, 255, 0.05); color: var(--text-main);">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </div>
+
+          <!-- ANALYTICS COMPLETOS DE TRÁFEGO -->
+          <div class="panel-card" style="margin-bottom: 24px;">
+            <div class="panel-header" style="margin-bottom: 20px;">
+              <h3 class="panel-title">Tráfego e Acessos à Página</h3>
+              <div class="kpi-icon-wrapper" aria-hidden="true" style="background: rgba(255, 255, 255, 0.05); color: var(--text-main); width: 32px; height: 32px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </div>
+            </div>
+            
+            <div class="dashboard-row" style="grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+              
+              <!-- VISÕES GERAIS -->
+              <div style="border-right: 1px solid var(--border-color); padding-right: 20px;">
+                <h4 style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 16px;">Visões Gerais</h4>
+                
+                <div style="margin-bottom: 16px;">
+                  <span style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 4px;">Acessos Hoje</span>
+                  <div style="display: flex; align-items: baseline; gap: 8px;">
+                    <span style="font-size: 28px; font-weight: 800; color: var(--text-main);" id="analytics-views-today">0</span>
+                  </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                  <span style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 4px;">Total Histórico</span>
+                  <div style="display: flex; align-items: baseline; gap: 8px;">
+                    <span style="font-size: 20px; font-weight: 700; color: var(--text-main);" id="analytics-views-total">0</span>
+                    <span style="font-size: 12px; color: var(--text-muted);" id="analytics-unique-total">0 Únicos</span>
+                  </div>
                 </div>
               </div>
-              <p class="kpi-value" id="kpi-page-views-total">0</p>
-              <div class="kpi-desc">Total de visualizações</div>
-              <div class="kpi-sub-stats">
-                <div class="kpi-sub-item">
-                  <span class="kpi-bullet blue"></span>
-                  <span id="sub-page-views-unique">0 Visitantes Únicos</span>
+
+              <!-- ORIGEM (REFERRERS) -->
+              <div style="border-right: 1px solid var(--border-color); padding-right: 20px;">
+                <h4 style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 16px;">Top Origens</h4>
+                <div id="analytics-referrers-list" style="display: flex; flex-direction: column; gap: 12px;">
+                  <!-- Preenchido via JS -->
+                  <div style="font-size: 13px; color: var(--text-muted);">Carregando origens...</div>
                 </div>
+              </div>
+
+              <!-- DISPOSITIVOS -->
+              <div>
+                <h4 style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 16px;">Dispositivos</h4>
+                
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                      <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">📱 Celular (Mobile)</span>
+                      <span style="font-size: 13px; color: var(--text-muted);" id="analytics-device-mobile-pct">0%</span>
+                    </div>
+                    <div style="width: 100%; height: 6px; background: var(--bg-body); border-radius: 4px; overflow: hidden;">
+                      <div id="analytics-device-mobile-bar" style="height: 100%; width: 0%; background: var(--accent-orange); transition: width 1s ease;"></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                      <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">💻 Computador (Desktop)</span>
+                      <span style="font-size: 13px; color: var(--text-muted);" id="analytics-device-desktop-pct">0%</span>
+                    </div>
+                    <div style="width: 100%; height: 6px; background: var(--bg-body); border-radius: 4px; overflow: hidden;">
+                      <div id="analytics-device-desktop-bar" style="height: 100%; width: 0%; background: var(--accent-blue); transition: width 1s ease;"></div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>

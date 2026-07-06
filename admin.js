@@ -772,10 +772,97 @@ function updateDashboardKPIs() {
     document.getElementById("sub-quiz-avg-score").textContent = `Média de ${Math.round(avgScore * 100)}% acertos`;
   }
 
-  if (state.pageViews && document.getElementById("kpi-page-views-total")) {
-    document.getElementById("kpi-page-views-total").textContent = state.pageViews.length;
+  // Processar Painel Completo de Analytics
+  if (state.pageViews && document.getElementById("analytics-views-total")) {
+    const totalViews = state.pageViews.length;
     const uniqueSessions = new Set(state.pageViews.map(pv => pv.session_id)).size;
-    document.getElementById("sub-page-views-unique").textContent = `${uniqueSessions} Visitantes Únicos`;
+    
+    // Calcular visualizações de hoje
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const viewsToday = state.pageViews.filter(pv => {
+      const d = new Date(pv.created_at);
+      return d >= today;
+    }).length;
+
+    document.getElementById("analytics-views-today").textContent = viewsToday;
+    document.getElementById("analytics-views-total").textContent = totalViews;
+    document.getElementById("analytics-unique-total").textContent = `${uniqueSessions} Únicos`;
+
+    // Dispositivos (Mobile vs Desktop)
+    let mobileCount = 0;
+    let desktopCount = 0;
+    
+    // Top Origens
+    const referrersMap = {};
+
+    state.pageViews.forEach(pv => {
+      // User Agent Parsing Básico
+      const ua = (pv.user_agent || "").toLowerCase();
+      if (ua.includes("mobile") || ua.includes("android") || ua.includes("iphone")) {
+        mobileCount++;
+      } else {
+        desktopCount++;
+      }
+
+      // Referrer Parsing
+      let ref = pv.referrer || "Direto / Sem origem";
+      if (ref !== "Direto / Sem origem") {
+        try {
+          const url = new URL(ref);
+          ref = url.hostname.replace("www.", "");
+        } catch (e) {
+          // Mantém como está se não for URL válida
+        }
+      }
+      if (ref === "instagram.com" || ref === "l.instagram.com") ref = "Instagram";
+      if (ref.includes("google")) ref = "Google";
+      if (ref.includes("facebook") || ref === "l.facebook.com" || ref === "m.facebook.com") ref = "Facebook";
+
+      referrersMap[ref] = (referrersMap[ref] || 0) + 1;
+    });
+
+    // Atualizar UI Dispositivos
+    const mobilePct = totalViews > 0 ? Math.round((mobileCount / totalViews) * 100) : 0;
+    const desktopPct = totalViews > 0 ? Math.round((desktopCount / totalViews) * 100) : 0;
+    
+    const mPctEl = document.getElementById("analytics-device-mobile-pct");
+    const dPctEl = document.getElementById("analytics-device-desktop-pct");
+    const mBarEl = document.getElementById("analytics-device-mobile-bar");
+    const dBarEl = document.getElementById("analytics-device-desktop-bar");
+    
+    if (mPctEl) {
+      mPctEl.textContent = `${mobilePct}%`;
+      mBarEl.style.width = `${mobilePct}%`;
+      dPctEl.textContent = `${desktopPct}%`;
+      dBarEl.style.width = `${desktopPct}%`;
+    }
+
+    // Atualizar UI Origens
+    const referrersListEl = document.getElementById("analytics-referrers-list");
+    if (referrersListEl) {
+      referrersListEl.innerHTML = "";
+      const sortedReferrers = Object.entries(referrersMap).sort((a, b) => b[1] - a[1]).slice(0, 5); // Top 5
+      
+      if (sortedReferrers.length === 0) {
+        referrersListEl.innerHTML = `<div style="font-size: 13px; color: var(--text-muted);">Nenhum dado registrado ainda.</div>`;
+      } else {
+        sortedReferrers.forEach(([ref, count]) => {
+          const pct = Math.round((count / totalViews) * 100);
+          referrersListEl.innerHTML += `
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 13px; color: var(--text-main);">${ref}</span>
+              </div>
+              <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">${pct}%</span>
+            </div>
+            <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; margin-top: -6px;">
+              <div style="height: 100%; width: ${pct}%; background: rgba(255,255,255,0.3); border-radius: 2px;"></div>
+            </div>
+          `;
+        });
+      }
+    }
   }
 
   // Atualizar visualização do gráfico circular do Dashboard
