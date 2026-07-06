@@ -630,13 +630,15 @@ async function fetchAllData(forceRefresh = false, isBackground = false) {
       "Content-Type": "application/json"
     };
 
+    const fetchOpts = { headers, cache: "no-store" };
+
     // Fazer requisições em paralelo para desempenho premium
     const [ordersRes, messagesRes, quizRes, profilesRes, settingsRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/orders?order=created_at.desc`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/messages?order=created_at.desc`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/quiz_responses?order=created_at.desc`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/profiles?order=name.asc`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/settings`, { headers })
+      fetch(`${SUPABASE_URL}/rest/v1/orders?order=created_at.desc`, fetchOpts),
+      fetch(`${SUPABASE_URL}/rest/v1/messages?order=created_at.desc`, fetchOpts),
+      fetch(`${SUPABASE_URL}/rest/v1/quiz_responses?order=created_at.desc`, fetchOpts),
+      fetch(`${SUPABASE_URL}/rest/v1/profiles?order=name.asc`, fetchOpts),
+      fetch(`${SUPABASE_URL}/rest/v1/settings`, fetchOpts)
     ]);
 
     if (ordersRes.ok) state.orders = await ordersRes.json();
@@ -1188,12 +1190,18 @@ async function updateOrderStatus(orderId, newStatus) {
       headers: {
         "apikey": SUPABASE_ANON_KEY,
         "Authorization": `Bearer ${state.token}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
       },
       body: JSON.stringify({ status: newStatus })
     });
 
     if (res.ok) {
+      const updatedData = await res.json();
+      if (!updatedData || updatedData.length === 0) {
+        throw new Error("O servidor não atualizou o pedido (verifique permissões).");
+      }
+      
       showToast("Status do pedido atualizado.", "success");
       // Atualizar no estado local
       const idx = state.orders.findIndex(o => o.id === orderId);
