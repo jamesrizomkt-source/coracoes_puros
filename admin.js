@@ -635,11 +635,11 @@ async function fetchAllData(forceRefresh = false, isBackground = false) {
 
     // Fazer requisições em paralelo para desempenho premium
     const [ordersRes, messagesRes, quizRes, profilesRes, settingsRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/orders?order=created_at.desc&_t=${ts}`, fetchOpts),
-      fetch(`${SUPABASE_URL}/rest/v1/messages?order=created_at.desc&_t=${ts}`, fetchOpts),
-      fetch(`${SUPABASE_URL}/rest/v1/quiz_responses?order=created_at.desc&_t=${ts}`, fetchOpts),
-      fetch(`${SUPABASE_URL}/rest/v1/profiles?order=name.asc&_t=${ts}`, fetchOpts),
-      fetch(`${SUPABASE_URL}/rest/v1/settings?_t=${ts}`, fetchOpts)
+      fetch(`${SUPABASE_URL}/rest/v1/orders?order=created_at.desc`, fetchOpts),
+      fetch(`${SUPABASE_URL}/rest/v1/messages?order=created_at.desc`, fetchOpts),
+      fetch(`${SUPABASE_URL}/rest/v1/quiz_responses?order=created_at.desc`, fetchOpts),
+      fetch(`${SUPABASE_URL}/rest/v1/profiles?order=name.asc`, fetchOpts),
+      fetch(`${SUPABASE_URL}/rest/v1/settings`, fetchOpts)
     ]);
 
     if (ordersRes.ok) state.orders = await ordersRes.json();
