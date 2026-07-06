@@ -870,6 +870,13 @@ function updateDashboardKPIs() {
   const circleText = document.getElementById("js-dash-circle-text");
   
   if (circleProgress && circleText) {
+    let avgPercent = 0;
+    if (state.quizResponses && state.quizResponses.length > 0) {
+      const totalScore = state.quizResponses.reduce((acc, q) => acc + q.score, 0);
+      const totalQuestions = state.quizResponses.reduce((acc, q) => acc + q.total_questions, 0);
+      avgPercent = totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0;
+    }
+
     circleText.textContent = `${avgPercent}%`;
     // Raio do círculo = 58, Circunferência = 2 * PI * r = 364.42
     const circumference = 364.4;
