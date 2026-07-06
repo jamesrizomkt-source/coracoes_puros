@@ -89,7 +89,7 @@ serve(async (req) => {
 
     const melhorEnvioBaseUrl = isSandbox 
       ? "https://sandbox.melhorenvio.com.br" 
-      : "https://api.melhorenvio.com.br";
+      : "https://melhorenvio.com.br";
 
     // -------------------------------------------------------------
     // ENDPOINT: COTAÇÃO DE FRETE (POST /calculate)
