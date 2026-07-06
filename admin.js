@@ -82,7 +82,7 @@ window.generateLabel = async function(orderId) {
     const data = await res.json();
     if (!res.ok || data.error) {
       if (popup) popup.close();
-      showToast("Erro ao gerar etiqueta: " + (data.error || "Desconhecido. Verifique se o endereço do cliente está completo."), "error");
+      showToast("Erro ao gerar etiqueta: " + (data.error || "Desconhecido.") + " Detalhes: " + (data.details || ""), "error");
       if (btn) {
         btn.innerHTML = originalText;
         btn.disabled = false;
