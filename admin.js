@@ -2416,6 +2416,10 @@ window.openOrderModal = function(orderId) {
     <h4 style="color: var(--text-main); margin-bottom: 12px;">Informações de Pagamento e Logística</h4>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
       <div>
+        <strong style="color: var(--text-main);">Modalidade de Envio:</strong><br>
+        <span style="color: var(--accent-orange); font-weight: 600;">${escapeHTML(order.shipping_company || "N/A")}</span>
+      </div>
+      <div>
         <strong style="color: var(--text-main);">ID Pagamento MP:</strong><br>
         ${escapeHTML(order.mercado_pago_payment_id || "N/A")}
       </div>
@@ -2425,8 +2429,8 @@ window.openOrderModal = function(orderId) {
       </div>
     </div>
     
-    <div style="margin-top: 20px; display: flex; justify-content: flex-start;">
-      <button class="btn btn-blue" style="width: auto; height: 38px; padding: 0 16px; font-size: 13px; display: flex; align-items: center; gap: 8px;" type="button" onclick="openAgenciesModal('${order.shipping_company || 'Correios'}')">
+    <div style="margin-top: 24px; display: flex; justify-content: flex-start; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05);">
+      <button style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-main); border-radius: var(--radius-sm); width: auto; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;" type="button" onclick="openAgenciesModal('${escapeHTML(order.shipping_company || 'Correios')}')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
         📍 Localizar Ponto de Postagem
       </button>
     </div>
