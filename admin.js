@@ -819,7 +819,9 @@ function updateDashboardKPIs() {
       if (ref.includes("google")) ref = "Google";
       if (ref.includes("facebook") || ref === "l.facebook.com" || ref === "m.facebook.com") ref = "Facebook";
 
-      referrersMap[ref] = (referrersMap[ref] || 0) + 1;
+      if (ref !== "localhost" && ref !== "127.0.0.1") {
+        referrersMap[ref] = (referrersMap[ref] || 0) + 1;
+      }
     });
 
     // Atualizar UI Dispositivos

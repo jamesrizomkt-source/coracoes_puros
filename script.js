@@ -39,8 +39,9 @@ try {
     return s;
   })();
 
-  fetch(`${SUPABASE_URL}/rest/v1/page_views`, {
-    method: "POST",
+  if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    fetch(`${SUPABASE_URL}/rest/v1/page_views`, {
+      method: "POST",
     headers: {
       "apikey": SUPABASE_ANON_KEY,
       "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
@@ -54,6 +55,7 @@ try {
       user_agent: navigator.userAgent
     })
   }).catch(() => {});
+  }
 } catch (e) {
   // Ignora erros de rastreamento para não interferir na experiência do usuário
 }
