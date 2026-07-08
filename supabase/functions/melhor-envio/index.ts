@@ -202,6 +202,68 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------
+    // ENDPOINT: BUSCAR PONTOS DE POSTAGEM (GET /agencies)
+    // -------------------------------------------------------------
+    if (path.endsWith("/agencies")) {
+      if (req.method !== "GET" && req.method !== "POST") {
+        return new Response("Método Não Permitido", { status: 405, headers: corsHeaders });
+      }
+
+      let companyId = "1";
+      let postalCode = meOriginCep;
+
+      if (req.method === "POST") {
+        const body = await req.json();
+        if (body.company) companyId = body.company;
+        if (body.postal_code) postalCode = body.postal_code.replace(/\D/g, "");
+      } else {
+        const companyParam = url.searchParams.get("company");
+        const postalCodeParam = url.searchParams.get("postal_code");
+        if (companyParam) companyId = companyParam;
+        if (postalCodeParam) postalCode = postalCodeParam.replace(/\D/g, "");
+      }
+
+      if (!postalCode) {
+        return new Response(
+          JSON.stringify({ error: "CEP de postagem não informado." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Consulta a API do Melhor Envio para listar agências
+      const agenciesUrl = `${melhorEnvioBaseUrl}/api/v2/me/shipment/agencies?company=${companyId}&country=BR&postal_code=${postalCode}`;
+      
+      const agenciesRes = await fetch(agenciesUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${meToken}`,
+          "User-Agent": `Antigravity Integration (jjamesnt@gmail.com)`,
+        }
+      });
+
+      if (!agenciesRes.ok) {
+        const errText = await agenciesRes.text();
+        return new Response(
+          JSON.stringify({ error: `Erro ao buscar agências: ${agenciesRes.statusText}`, details: errText }),
+          { status: agenciesRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const agenciesResult = await agenciesRes.json();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          company: companyId,
+          postal_code: postalCode,
+          agencies: agenciesResult
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // -------------------------------------------------------------
     // ENDPOINT: COMPRA / GERAÇÃO DE ETIQUETA NO CARRINHO (POST /cart)
     // -------------------------------------------------------------
     if (path.endsWith("/cart")) {

@@ -2424,6 +2424,12 @@ window.openOrderModal = function(orderId) {
         ${escapeHTML(order.melhor_envio_tracking || "N/A")}
       </div>
     </div>
+    
+    <div style="margin-top: 20px; display: flex; justify-content: flex-start;">
+      <button class="btn btn-blue" style="width: auto; height: 38px; padding: 0 16px; font-size: 13px; display: flex; align-items: center; gap: 8px;" type="button" onclick="openAgenciesModal('${order.shipping_company || 'Correios'}')">
+        📍 Localizar Ponto de Postagem
+      </button>
+    </div>
   `;
 
   modal.style.display = "flex";
@@ -2432,3 +2438,109 @@ window.openOrderModal = function(orderId) {
 window.closeOrderModal = function() {
   document.getElementById("js-order-modal").style.display = "none";
 };
+
+// ==========================================
+// AGENCIES MAP MODAL (PONTOS DE POSTAGEM)
+// ==========================================
+window.openAgenciesModal = function(shippingCompany) {
+  const modal = document.getElementById("js-agencies-modal");
+  const cepInput = document.getElementById("agency-cep");
+  const companySelect = document.getElementById("agency-company");
+  const resultsDiv = document.getElementById("js-agencies-results");
+  
+  // Limpar resultados anteriores
+  resultsDiv.innerHTML = "";
+  
+  // Preencher CEP de origem caso exista
+  if (state.settings && state.settings.melhor_envio_origin_cep) {
+    cepInput.value = state.settings.melhor_envio_origin_cep;
+  }
+  
+  // Preencher a transportadora se possível
+  if (shippingCompany) {
+    const compLower = shippingCompany.toLowerCase();
+    if (compLower.includes('jadlog')) {
+      companySelect.value = "2";
+    } else {
+      companySelect.value = "1"; // Default Correios
+    }
+  }
+
+  modal.style.display = "flex";
+};
+
+window.closeAgenciesModal = function() {
+  document.getElementById("js-agencies-modal").style.display = "none";
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const agenciesForm = document.getElementById("js-agencies-form");
+  if (agenciesForm) {
+    agenciesForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const cep = document.getElementById("agency-cep").value.trim();
+      const company = document.getElementById("agency-company").value;
+      const resultsDiv = document.getElementById("js-agencies-results");
+      const btn = document.getElementById("js-btn-search-agencies");
+      const btnSpan = btn.querySelector("span");
+      
+      if (!cep) {
+        showToast("Por favor, preencha o CEP.", "error");
+        return;
+      }
+      
+      btn.disabled = true;
+      btnSpan.textContent = "Buscando...";
+      resultsDiv.innerHTML = "<p style='color: var(--text-muted); font-size: 14px;'>Buscando agências na região...</p>";
+      
+      try {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/melhor-envio/agencies?company=${company}&postal_code=${cep}`, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json"
+          }
+        });
+        
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "Erro ao buscar agências.");
+        }
+        
+        const data = await res.json();
+        const agencies = data.agencies || [];
+        
+        if (agencies.length === 0) {
+          resultsDiv.innerHTML = "<p style='color: var(--accent-orange); font-size: 14px;'>Nenhuma agência encontrada para este CEP e transportadora.</p>";
+          return;
+        }
+        
+        // Renderizar lista
+        resultsDiv.innerHTML = agencies.slice(0, 5).map(agency => {
+          const name = escapeHTML(agency.name || "Agência");
+          const address = agency.address || {};
+          const label = escapeHTML(address.label || "Endereço não disponível");
+          const number = escapeHTML(address.number || "S/N");
+          const district = escapeHTML(address.district || "");
+          const city = escapeHTML(address.city || "");
+          
+          return `
+            <div style="background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 16px;">
+              <strong style="color: var(--text-main); font-size: 15px; display: block; margin-bottom: 4px;">${name}</strong>
+              <span style="color: var(--text-muted); font-size: 13px;">${label}, ${number} ${district ? ' - ' + district : ''}</span><br>
+              <span style="color: var(--text-muted); font-size: 13px;">${city}</span>
+            </div>
+          `;
+        }).join("");
+        
+      } catch (error) {
+        console.error("Erro na busca de agências:", error);
+        resultsDiv.innerHTML = `<p style='color: var(--accent-red); font-size: 14px;'>Erro: ${escapeHTML(error.message)}</p>`;
+        showToast("Erro ao buscar agências.", "error");
+      } finally {
+        btn.disabled = false;
+        btnSpan.textContent = "Buscar Agências";
+      }
+    });
+  }
+});

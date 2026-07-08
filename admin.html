@@ -906,11 +906,52 @@
         <div id="js-order-modal-content" style="color: var(--text-muted); font-size: 14px; line-height: 1.6;">
           <!-- Conteúdo populado dinamicamente -->
         </div>
-        <div class="modal-actions" style="margin-top: 24px; display: flex; justify-content: flex-end;">
+        <div class="modal-actions" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
           <button class="btn btn-logout" style="width: auto; height: 40px; padding: 0 18px; color: var(--text-muted); border-color: var(--border-color);" type="button" onclick="closeOrderModal()">
             Fechar
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         AGENCIES MAP MODAL (PONTOS DE POSTAGEM)
+         ========================================== -->
+    <div class="modal-backdrop" id="js-agencies-modal" role="dialog" aria-modal="true" aria-labelledby="agencies-modal-title" style="display: none; align-items: center; justify-content: center; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1100; padding: 20px;">
+      <div class="modal-card" style="background: var(--bg-card); border-radius: var(--radius-md); padding: 24px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border-color); position: relative;">
+        <button type="button" onclick="closeAgenciesModal()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h3 class="modal-title" id="agencies-modal-title" style="margin-bottom: 8px; font-size: 20px; display: flex; align-items: center; gap: 8px;">
+          📍 Locais de Postagem
+        </h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
+          Encontre os pontos de coleta mais próximos de você para despachar este pedido.
+        </p>
+
+        <form id="js-agencies-form" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; background: var(--bg-sidebar); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="agency-cep">Seu CEP (Origem)</label>
+            <input class="form-input" type="text" id="agency-cep" required placeholder="Ex: 12345-678" style="height: 40px; font-size: 14px;">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="agency-company">Transportadora</label>
+            <select class="form-input" id="agency-company" required style="height: 40px; font-size: 14px; background: var(--bg-card); color: var(--text-main);">
+              <option value="1">Correios</option>
+              <option value="2">Jadlog</option>
+            </select>
+          </div>
+          <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end;">
+            <button class="btn btn-blue" type="submit" id="js-btn-search-agencies" style="width: auto; height: 38px; padding: 0 16px; font-size: 13px;">
+              <span>Buscar Agências</span>
+            </button>
+          </div>
+        </form>
+
+        <div id="js-agencies-results" style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Resultados aparecerão aqui -->
+        </div>
+
       </div>
     </div>
     
