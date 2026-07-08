@@ -273,6 +273,17 @@ function setupEventListeners() {
   const triggerReportBtn = document.getElementById("js-btn-trigger-report");
   if (triggerReportBtn) triggerReportBtn.addEventListener("click", handleTriggerDailyReportManual);
 
+  const testTelegramBtn = document.getElementById("js-btn-test-telegram");
+  if (testTelegramBtn) testTelegramBtn.addEventListener("click", handleTestTelegramConnection);
+
+  const telegramEnabledInput = document.getElementById("setting-telegram-enabled");
+  const telegramConfigPanel = document.getElementById("telegram-config-panel");
+  if (telegramEnabledInput && telegramConfigPanel) {
+    telegramEnabledInput.addEventListener("change", (e) => {
+      telegramConfigPanel.style.display = e.target.checked ? "block" : "none";
+    });
+  }
+
   const usersSearch = document.getElementById("users-search");
   if (usersSearch) usersSearch.addEventListener("input", renderUsersTable);
 
@@ -2069,18 +2080,27 @@ function populateSettingsForm() {
   const telegramChatInput = document.getElementById("setting-telegram-chat");
   const telegramConfigPanel = document.getElementById("telegram-config-panel");
 
+  let tgEnabled = false;
+  let tgToken = "";
+  let tgChat = "";
+
   if (telegramEnabledInput && state.settings.telegram_enabled !== undefined) {
-    telegramEnabledInput.checked = state.settings.telegram_enabled === "true";
-    if (telegramConfigPanel) telegramConfigPanel.style.display = telegramEnabledInput.checked ? "block" : "none";
+    tgEnabled = state.settings.telegram_enabled === "true";
+    telegramEnabledInput.checked = tgEnabled;
+    if (telegramConfigPanel) telegramConfigPanel.style.display = tgEnabled ? "block" : "none";
   }
   
   if (telegramTokenInput && state.settings.telegram_token !== undefined) {
-    telegramTokenInput.value = state.settings.telegram_token;
+    tgToken = state.settings.telegram_token;
+    telegramTokenInput.value = tgToken;
   }
   
   if (telegramChatInput && state.settings.telegram_chat !== undefined) {
-    telegramChatInput.value = state.settings.telegram_chat;
+    tgChat = state.settings.telegram_chat;
+    telegramChatInput.value = tgChat;
   }
+
+  updateTelegramStatusIndicator(tgEnabled, tgToken, tgChat);
 }
 
 // Salva uma única configuração global no Supabase REST
