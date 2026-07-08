@@ -1,12 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
-
-const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")
-const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID")
 
 serve(async (req) => {
   // CORS Preflight
@@ -21,8 +19,8 @@ serve(async (req) => {
       try { body = JSON.parse(rawBody) } catch(e) {}
     }
 
-    const { message, record, type } = body
-
+    const { message, record, type, table } = body
+    
     let finalMessage = message;
 
     // Supabase Database Webhook (INSERT no banco)
@@ -40,6 +38,36 @@ serve(async (req) => {
 
     if (!finalMessage) {
       return new Response(JSON.stringify({ error: "No message provided" }), { headers: corsHeaders, status: 400 })
+    }
+
+    // Inicializa o cliente do Supabase
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Busca as configurações na tabela de settings
+    const { data: settingsData, error: settingsError } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['telegram_enabled', 'telegram_token', 'telegram_chat']);
+
+    if (settingsError) {
+      console.error("Error fetching settings:", settingsError);
+      return new Response(JSON.stringify({ error: "Failed to fetch settings" }), { headers: corsHeaders, status: 500 });
+    }
+
+    let isEnabled = false;
+    let TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    let TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+
+    settingsData?.forEach((row: any) => {
+      if (row.key === 'telegram_enabled' && row.value === 'true') isEnabled = true;
+      if (row.key === 'telegram_token' && row.value) TELEGRAM_BOT_TOKEN = row.value;
+      if (row.key === 'telegram_chat' && row.value) TELEGRAM_CHAT_ID = row.value;
+    });
+
+    if (!isEnabled) {
+      return new Response(JSON.stringify({ success: true, message: "Telegram notifications disabled in settings" }), { headers: corsHeaders, status: 200 })
     }
 
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {

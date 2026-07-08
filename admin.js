@@ -2063,6 +2063,24 @@ function populateSettingsForm() {
   if (sandboxInput && state.settings.melhor_envio_sandbox !== undefined) {
     sandboxInput.checked = state.settings.melhor_envio_sandbox === "true";
   }
+
+  const telegramEnabledInput = document.getElementById("setting-telegram-enabled");
+  const telegramTokenInput = document.getElementById("setting-telegram-token");
+  const telegramChatInput = document.getElementById("setting-telegram-chat");
+  const telegramConfigPanel = document.getElementById("telegram-config-panel");
+
+  if (telegramEnabledInput && state.settings.telegram_enabled !== undefined) {
+    telegramEnabledInput.checked = state.settings.telegram_enabled === "true";
+    if (telegramConfigPanel) telegramConfigPanel.style.display = telegramEnabledInput.checked ? "block" : "none";
+  }
+  
+  if (telegramTokenInput && state.settings.telegram_token !== undefined) {
+    telegramTokenInput.value = state.settings.telegram_token;
+  }
+  
+  if (telegramChatInput && state.settings.telegram_chat !== undefined) {
+    telegramChatInput.value = state.settings.telegram_chat;
+  }
 }
 
 // Salva uma única configuração global no Supabase REST
