@@ -937,15 +937,29 @@ function updateDashboardKPIs() {
     // 3. Taxa de Conversão & Abandono
     const totalOrders = state.orders.length;
     const uniqueIPs = new Set();
+    let oldestPageViewTime = Date.now();
+    
     state.pageViews.forEach(pv => {
       const ref = pv.referrer || "";
       if (ref !== "localhost" && ref !== "127.0.0.1") {
         if (pv.session_id) uniqueIPs.add(pv.session_id);
+        if (pv.created_at) {
+          const t = new Date(pv.created_at).getTime();
+          if (t < oldestPageViewTime) oldestPageViewTime = t;
+        }
       }
     });
+    
     const uniqueVisitors = uniqueIPs.size;
 
-    const conversionRate = uniqueVisitors > 0 ? ((totalOrders / uniqueVisitors) * 100).toFixed(1) : "0.0";
+    // Para a taxa de conversão não ficar distorcida (acima de 100%), 
+    // só contamos os pedidos que ocorreram DEPOIS do início do rastreio de visualizações
+    let validOrdersCount = 0;
+    if (uniqueVisitors > 0 && oldestPageViewTime < Date.now()) {
+      validOrdersCount = state.orders.filter(o => new Date(o.created_at).getTime() >= oldestPageViewTime).length;
+    }
+
+    const conversionRate = uniqueVisitors > 0 ? ((validOrdersCount / uniqueVisitors) * 100).toFixed(1) : "0.0";
     const pendingOrders = state.orders.filter(o => o.status === "pending").length;
     const abandonmentRate = totalOrders > 0 ? ((pendingOrders / totalOrders) * 100).toFixed(1) : "0.0";
 
