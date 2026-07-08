@@ -356,6 +356,60 @@
             </div>
           </div>
 
+          <!-- INTELIGÊNCIA ESTRATÉGICA E CONVERSÃO -->
+          <div class="panel-card" style="margin-bottom: 24px;">
+            <div class="panel-header" style="margin-bottom: 20px;">
+              <h3 class="panel-title">Inteligência Estratégica & Conversão</h3>
+              <div class="kpi-icon-wrapper" aria-hidden="true" style="background: rgba(255, 255, 255, 0.05); color: var(--accent-orange); width: 32px; height: 32px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+              </div>
+            </div>
+            
+            <div class="dashboard-row" style="grid-template-columns: repeat(4, 1fr); gap: 20px;">
+              
+              <!-- DIAS DE PICO -->
+              <div style="border-right: 1px solid var(--border-color); padding-right: 15px;">
+                <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px;">Dias de Maior Acesso</h4>
+                <div id="analytics-days-bars" style="display: flex; align-items: flex-end; gap: 4px; height: 60px; margin-bottom: 8px;">
+                  <!-- Renderizado via JS -->
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main);" id="analytics-top-day">Analisando...</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Dia com mais acessos históricos</div>
+              </div>
+
+              <!-- HORÁRIO DE PICO -->
+              <div style="border-right: 1px solid var(--border-color); padding-right: 15px;">
+                <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px;">Horários de Ouro</h4>
+                <div style="display: flex; flex-direction: column; justify-content: center; height: 60px; margin-bottom: 8px;">
+                  <span style="font-size: 24px; font-weight: 800; color: var(--accent-orange); line-height: 1;" id="analytics-top-hour">--:--</span>
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">Pico de Acessos</div>
+                <div style="font-size: 11px; color: var(--text-muted);" id="analytics-top-hour-desc">Analisando horários...</div>
+              </div>
+
+              <!-- TAXA DE CONVERSÃO -->
+              <div style="border-right: 1px solid var(--border-color); padding-right: 15px;">
+                <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px;">Taxa de Conversão</h4>
+                <div style="display: flex; flex-direction: column; justify-content: center; height: 60px; margin-bottom: 8px;">
+                  <span style="font-size: 24px; font-weight: 800; color: var(--accent-green); line-height: 1;" id="analytics-conversion-rate">0%</span>
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">Visitantes p/ Pedido</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Porcentagem de visitantes que preenchem o formulário</div>
+              </div>
+
+              <!-- ABANDONO DE CARRINHO -->
+              <div>
+                <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px;">Abandono (Inadimplência)</h4>
+                <div style="display: flex; flex-direction: column; justify-content: center; height: 60px; margin-bottom: 8px;">
+                  <span style="font-size: 24px; font-weight: 800; color: #ff4d4f; line-height: 1;" id="analytics-abandonment-rate">0%</span>
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">Pedidos Pendentes</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Gera pedido mas não paga</div>
+              </div>
+
+            </div>
+          </div>
+
           <!-- ANALYTICS PANEL & RECENT CONTEXT -->
           <div class="dashboard-row">
             <!-- RECENT ORDERS -->

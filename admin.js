@@ -867,6 +867,95 @@ function updateDashboardKPIs() {
     }
   }
 
+  // ==========================================
+  // INTELIGÊNCIA ESTRATÉGICA & CONVERSÃO
+  // ==========================================
+  if (state.pageViews && state.orders) {
+    // 1. Dias da Semana
+    const daysMap = [0, 0, 0, 0, 0, 0, 0]; // Dom a Sab
+    const hoursMap = new Array(24).fill(0);
+    
+    state.pageViews.forEach(pv => {
+      const ref = pv.referrer || "";
+      if (ref === "localhost" || ref === "127.0.0.1") return;
+
+      if (pv.created_at) {
+        const d = new Date(pv.created_at);
+        daysMap[d.getDay()]++;
+        hoursMap[d.getHours()]++;
+      }
+    });
+
+    // Encontrar dia de pico
+    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const fullDayNames = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+    let maxDayVal = Math.max(...daysMap);
+    let topDayIndex = daysMap.indexOf(maxDayVal);
+    
+    const daysBarsEl = document.getElementById("analytics-days-bars");
+    const topDayEl = document.getElementById("analytics-top-day");
+    if (daysBarsEl && topDayEl) {
+      if (maxDayVal === 0) {
+        topDayEl.textContent = "Sem dados";
+        daysBarsEl.innerHTML = "";
+      } else {
+        topDayEl.textContent = fullDayNames[topDayIndex];
+        let barsHtml = "";
+        daysMap.forEach((val, i) => {
+          const hPct = maxDayVal > 0 ? (val / maxDayVal) * 100 : 0;
+          const isTop = i === topDayIndex;
+          barsHtml += `
+            <div style="display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px;">
+              <div style="width: 100%; height: 40px; display: flex; align-items: flex-end; justify-content: center;">
+                <div style="width: 8px; border-radius: 2px; height: ${Math.max(hPct, 5)}%; background: ${isTop ? 'var(--accent-orange)' : 'rgba(255,255,255,0.1)'}; transition: height 1s ease;"></div>
+              </div>
+              <span style="font-size: 9px; color: ${isTop ? 'var(--text-main)' : 'var(--text-muted)'};">${dayNames[i]}</span>
+            </div>
+          `;
+        });
+        daysBarsEl.innerHTML = barsHtml;
+      }
+    }
+
+    // 2. Horário de Pico
+    let maxHourVal = Math.max(...hoursMap);
+    let topHourIndex = hoursMap.indexOf(maxHourVal);
+    const topHourEl = document.getElementById("analytics-top-hour");
+    const topHourDescEl = document.getElementById("analytics-top-hour-desc");
+    
+    if (topHourEl && topHourDescEl) {
+      if (maxHourVal === 0) {
+        topHourEl.textContent = "--:--";
+        topHourDescEl.textContent = "Sem dados";
+      } else {
+        const hStr = topHourIndex.toString().padStart(2, '0');
+        topHourEl.textContent = `${hStr}h`;
+        topHourDescEl.textContent = `${maxHourVal} acessos neste horário`;
+      }
+    }
+
+    // 3. Taxa de Conversão & Abandono
+    const totalOrders = state.orders.length;
+    const uniqueIPs = new Set();
+    state.pageViews.forEach(pv => {
+      const ref = pv.referrer || "";
+      if (ref !== "localhost" && ref !== "127.0.0.1") {
+        if (pv.session_id) uniqueIPs.add(pv.session_id);
+      }
+    });
+    const uniqueVisitors = uniqueIPs.size;
+
+    const conversionRate = uniqueVisitors > 0 ? ((totalOrders / uniqueVisitors) * 100).toFixed(1) : "0.0";
+    const pendingOrders = state.orders.filter(o => o.status === "pending").length;
+    const abandonmentRate = totalOrders > 0 ? ((pendingOrders / totalOrders) * 100).toFixed(1) : "0.0";
+
+    const convEl = document.getElementById("analytics-conversion-rate");
+    if (convEl) convEl.textContent = `${conversionRate}%`;
+
+    const abanEl = document.getElementById("analytics-abandonment-rate");
+    if (abanEl) abanEl.textContent = `${abandonmentRate}%`;
+  }
+
   // Atualizar visualização do gráfico circular do Dashboard
   const circleProgress = document.getElementById("js-dash-circle-progress");
   const circleText = document.getElementById("js-dash-circle-text");
