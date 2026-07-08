@@ -2228,15 +2228,24 @@ async function handleSaveNotificationSettings(e) {
 
   try {
     const cleanAdminEmailList = emailList.join(", ");
-    const [emailOk, notifOk] = await Promise.all([
+    
+    const telegramEnabled = document.getElementById("setting-telegram-enabled").checked ? "true" : "false";
+    const telegramToken = document.getElementById("setting-telegram-token").value.trim();
+    const telegramChat = document.getElementById("setting-telegram-chat").value.trim();
+
+    const [emailOk, notifOk, tgEnabledOk, tgTokenOk, tgChatOk] = await Promise.all([
       saveGlobalSetting("admin_email", cleanAdminEmailList),
-      saveGlobalSetting("notifications_enabled", notificationsEnabled)
+      saveGlobalSetting("notifications_enabled", notificationsEnabled),
+      saveGlobalSetting("telegram_enabled", telegramEnabled),
+      saveGlobalSetting("telegram_token", telegramToken),
+      saveGlobalSetting("telegram_chat", telegramChat)
     ]);
 
-    if (emailOk && notifOk) {
+    if (emailOk && notifOk && tgEnabledOk) {
       showToast("Configurações de alerta salvas com sucesso!", "success");
       // Atualizar o input com a lista limpa e formatada
       document.getElementById("setting-admin-email").value = cleanAdminEmailList;
+      updateTelegramStatusIndicator(telegramEnabled === "true", telegramToken, telegramChat);
     } else {
       showToast("Alguns parâmetros de alerta não foram salvos.", "error");
     }
@@ -2248,6 +2257,66 @@ async function handleSaveNotificationSettings(e) {
       submitBtn.disabled = false;
       submitBtn.querySelector("span").textContent = "Salvar Parâmetros de Alerta";
     }
+  }
+}
+
+// Atualiza a bolinha de status do Telegram
+function updateTelegramStatusIndicator(isEnabled, token, chat) {
+  const indicator = document.getElementById("telegram-status-indicator");
+  if (!indicator) return;
+
+  if (!isEnabled) {
+    indicator.style.backgroundColor = "var(--text-muted)";
+    indicator.title = "Desativado";
+  } else if (!token || !chat) {
+    indicator.style.backgroundColor = "var(--accent-red)";
+    indicator.title = "Ativado, mas faltando configurações";
+  } else {
+    indicator.style.backgroundColor = "var(--accent-green)";
+    indicator.title = "Ativado e Configurado";
+  }
+}
+
+// Testa a conexão do Telegram disparando uma requisição direto pra API deles
+async function handleTestTelegramConnection() {
+  const token = document.getElementById("setting-telegram-token").value.trim();
+  const chat = document.getElementById("setting-telegram-chat").value.trim();
+  const resultSpan = document.getElementById("telegram-test-result");
+
+  if (!token || !chat) {
+    resultSpan.textContent = "Preencha Token e Chat ID!";
+    resultSpan.style.color = "var(--accent-red)";
+    return;
+  }
+
+  resultSpan.textContent = "Enviando...";
+  resultSpan.style.color = "var(--text-muted)";
+
+  try {
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chat,
+        text: "✅ *Sucesso!* A integração com o Telegram na Dashboard do Corações Puros está funcionando perfeitamente.",
+        parse_mode: "Markdown"
+      })
+    });
+
+    const data = await res.json();
+    if (data.ok) {
+      resultSpan.textContent = "Sucesso! Cheque seu celular.";
+      resultSpan.style.color = "var(--accent-green)";
+    } else {
+      console.error(data);
+      resultSpan.textContent = "Erro: Verifique os dados.";
+      resultSpan.style.color = "var(--accent-red)";
+    }
+  } catch (err) {
+    console.error(err);
+    resultSpan.textContent = "Erro de conexão!";
+    resultSpan.style.color = "var(--accent-red)";
   }
 }
 
