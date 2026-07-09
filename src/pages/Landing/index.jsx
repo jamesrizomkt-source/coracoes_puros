@@ -714,34 +714,9 @@ export default function CheckoutWidget() {
                       <strong>R$ {(bookPrice * qty).toFixed(2).replace('.', ',')}</strong>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "15px" }}>
-                      <span>Frete</span>
+                      <span>Frete {selectedShipping ? `(${selectedShipping.company?.name ? selectedShipping.company.name + ' - ' : ''}${selectedShipping.name})` : isPickup ? '(Retirada)' : ''}</span>
                       <strong>R$ {(selectedShipping ? parseFloat(selectedShipping.price) : 0).toFixed(2).replace('.', ',')}</strong>
                     </div>
-                    {shippingResult && (
-                      <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "-4px", marginBottom: "12px" }} dangerouslySetInnerHTML={{ __html: shippingResult }} />
-                    )}
-                    {shippingOptions.length > 0 && (
-                      <div style={{ marginTop: "12px", marginBottom: "16px" }}>
-                        <h4 style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Escolha o Prazo:</h4>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          {shippingOptions.map((opt, idx) => (
-                            <label key={idx} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px", border: selectedShipping?.id === opt.id ? "2px solid var(--blue)" : "1px solid #ccc", borderRadius: "6px", cursor: "pointer", background: selectedShipping?.id === opt.id ? "#f0f7ff" : "#fff", transition: "all 0.2s" }} onClick={() => { setSelectedShipping(opt); setFinalPrice((bookPrice * qty) + parseFloat(opt.price)); }}>
-                              <input type="radio" name="shippingOpt" checked={selectedShipping?.id === opt.id} readOnly style={{ margin: 0, cursor: "pointer" }} />
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: "14px", fontWeight: "bold" }}>
-                                  {opt.company?.name ? `${opt.company.name} - ${opt.name}` : opt.name}
-                                </div>
-                                <div style={{ fontSize: "12px", color: "var(--muted)" }}>até {opt.delivery_time} dias úteis</div>
-                              </div>
-                              <div style={{ fontSize: "14px", fontWeight: "bold", color: "var(--blue)" }}>R$ {parseFloat(opt.price).toFixed(2).replace('.', ',')}</div>
-                            </label>
-                          ))}
-                        </div>
-                        <div style={{ marginTop: "10px", fontSize: "11.5px", color: "var(--muted)", fontStyle: "italic", textAlign: "left", lineHeight: "1.3" }}>
-                          * Os despachos aos Correios/Transportadoras são realizados semanalmente.
-                        </div>
-                      </div>
-                    )}
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #dee2e6" }}>
                       <strong>Total a Pagar</strong>
                       <strong style={{ color: "#1f9d61" }}>R$ {finalPrice.toFixed(2).replace('.', ',')}</strong>
