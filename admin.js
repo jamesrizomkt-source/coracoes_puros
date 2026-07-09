@@ -1154,7 +1154,10 @@ function renderOrdersTable() {
       "3": "Jadlog Package",
       "4": "Jadlog .Com",
       "17": "Correios Mini Envios",
-      "35": "Loggi / Transportadora"
+      "31": "Loggi Express",
+      "32": "Loggi Coleta",
+      "34": "Loggi Ponto",
+      "35": "Total Express Standard"
     };
     
     const shippingName = order.shipping_company || serviceMap[order.shipping_service_id] || (order.shipping_service_id ? "Correios/Transportadora" : "Não Informado");
@@ -2529,7 +2532,10 @@ window.openOrderModal = function(orderId) {
     "3": "Jadlog Package",
     "4": "Jadlog .Com",
     "17": "Correios Mini Envios",
-    "35": "Loggi / Transportadora"
+    "31": "Loggi Express",
+    "32": "Loggi Coleta",
+    "34": "Loggi Ponto",
+    "35": "Total Express Standard"
   };
   
   const shippingName = order.shipping_company || serviceMap[order.shipping_service_id] || (order.shipping_service_id ? "Correios/Transportadora" : "Não Informado");
@@ -2636,6 +2642,8 @@ window.openAgenciesModal = function(shippingCompany) {
     const compLower = shippingCompany.toLowerCase();
     if (compLower.includes('jadlog')) {
       companySelect.value = "2";
+    } else if (compLower.includes('total')) {
+      companySelect.value = "8";
     } else {
       companySelect.value = "1"; // Default Correios
     }
