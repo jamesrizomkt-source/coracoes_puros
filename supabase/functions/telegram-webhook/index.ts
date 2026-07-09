@@ -77,26 +77,34 @@ serve(async (req) => {
 
     const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`
 
-    const response = await fetch(telegramApiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: finalMessage,
-        parse_mode: "HTML" // Permite formatação em HTML (<b>, <i>, <a> etc)
-      }),
-    })
+    const chatIds = TELEGRAM_CHAT_ID.split(',').map((id: string) => id.trim()).filter(Boolean);
+    const results = [];
+    let hasError = false;
 
-    const result = await response.json()
-
-    if (!response.ok) {
-      console.error("Telegram API Error:", result)
-      return new Response(JSON.stringify({ error: "Failed to send message to Telegram", details: result }), { headers: corsHeaders, status: 500 })
+    for (const chatId of chatIds) {
+      const response = await fetch(telegramApiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: finalMessage,
+          parse_mode: "HTML"
+        }),
+      });
+      const result = await response.json();
+      results.push(result);
+      if (!response.ok) hasError = true;
     }
 
-    return new Response(JSON.stringify({ success: true, result }), { headers: corsHeaders, status: 200 })
+    if (hasError) {
+      console.error("Telegram API Error:", results)
+      // Return 200 anyway so we don't retry endlessly from Database Webhooks if one chat fails
+      return new Response(JSON.stringify({ warning: "Some messages failed", details: results }), { headers: corsHeaders, status: 200 })
+    }
+
+    return new Response(JSON.stringify({ success: true, results }), { headers: corsHeaders, status: 200 })
 
   } catch (err: any) {
     console.error("Error sending Telegram message:", err)
