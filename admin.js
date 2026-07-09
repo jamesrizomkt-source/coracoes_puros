@@ -2539,7 +2539,7 @@ window.openOrderModal = function(orderId) {
   };
   
   const shippingName = order.shipping_company || serviceMap[order.shipping_service_id] || (order.shipping_service_id ? "Correios/Transportadora" : "Não Informado");
-  const shippingCompanyParam = shippingName.toLowerCase().includes('jadlog') ? 'Jadlog' : (shippingName.toLowerCase().includes('loggi') ? 'Loggi' : 'Correios');
+  const shippingCompanyParam = shippingName.toLowerCase().includes('jadlog') ? 'Jadlog' : (shippingName.toLowerCase().includes('total') ? 'Total Express' : 'Correios');
 
   content.innerHTML = `
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
