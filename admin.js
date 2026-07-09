@@ -2542,55 +2542,53 @@ window.openOrderModal = function(orderId) {
   const shippingCompanyParam = shippingName.toLowerCase().includes('jadlog') ? 'Jadlog' : (shippingName.toLowerCase().includes('total') ? 'Total Express' : 'Correios');
 
   content.innerHTML = `
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
       <div>
-        <strong style="color: var(--text-main);">Nome do Cliente:</strong><br>
-        ${escapeHTML(order.name || "N/A")}
+        <strong style="color: var(--text-main); font-size: 13px;">Nome do Cliente:</strong><br>
+        <span style="font-size: 13px;">${escapeHTML(order.name || "N/A")}</span>
       </div>
       <div>
-        <strong style="color: var(--text-main);">E-mail:</strong><br>
-        ${escapeHTML(order.email || "N/A")}
+        <strong style="color: var(--text-main); font-size: 13px;">E-mail:</strong><br>
+        <span style="font-size: 13px;">${escapeHTML(order.email || "N/A")}</span>
       </div>
       <div>
-        <strong style="color: var(--text-main);">Telefone (WhatsApp):</strong><br>
-        ${escapeHTML(order.phone || "N/A")}
+        <strong style="color: var(--text-main); font-size: 13px;">Telefone (WhatsApp):</strong><br>
+        <span style="font-size: 13px;">${escapeHTML(order.phone || "N/A")}</span>
       </div>
       <div>
-        <strong style="color: var(--text-main);">Data do Pedido:</strong><br>
-        ${dateStr}
+        <strong style="color: var(--text-main); font-size: 13px;">Data do Pedido:</strong><br>
+        <span style="font-size: 13px;">${dateStr}</span>
       </div>
       <div>
-        <strong style="color: var(--text-main);">CPF do Comprador:</strong><br>
-        ${escapeHTML(order.buyer_cpf || "Não Informado")}
+        <strong style="color: var(--text-main); font-size: 13px;">CPF do Comprador:</strong><br>
+        <span style="font-size: 13px;">${escapeHTML(order.buyer_cpf || "Não Informado")}</span>
       </div>
       <div>
-        <strong style="color: var(--text-main);">Status:</strong><br>
-        ${statusLabels[order.status] || order.status}
+        <strong style="color: var(--text-main); font-size: 13px;">Status:</strong><br>
+        <span style="font-size: 13px;">${statusLabels[order.status] || order.status}</span>
       </div>
     </div>
     
-    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 12px 0;">
     
-    <h4 style="color: var(--text-main); margin-bottom: 12px;">Endereço de Entrega</h4>
-    <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
-      <div><strong>CEP:</strong> ${escapeHTML(order.address_cep || "N/A")}</div>
-      <div><strong>Rua:</strong> ${escapeHTML(order.address_street || "N/A")}, ${escapeHTML(order.address_number || "S/N")}</div>
-      <div><strong>Complemento:</strong> ${escapeHTML(order.address_complement || "Nenhum")}</div>
-      <div><strong>Bairro:</strong> ${escapeHTML(order.address_district || "N/A")}</div>
+    <h4 style="color: var(--text-main); margin-bottom: 8px; font-size: 14px;">Endereço de Entrega</h4>
+    <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px;">
+      <div><strong>CEP:</strong> ${escapeHTML(order.address_cep || "N/A")} &nbsp;|&nbsp; <strong>Bairro:</strong> ${escapeHTML(order.address_district || "N/A")}</div>
+      <div><strong>Logradouro:</strong> ${escapeHTML(order.address_street || "N/A")}, ${escapeHTML(order.address_number || "S/N")} ${order.address_complement ? ` - ${escapeHTML(order.address_complement)}` : ''}</div>
       <div><strong>Cidade/UF:</strong> ${escapeHTML(order.address_city || "N/A")} / ${escapeHTML(order.address_state || "N/A")}</div>
     </div>
     
-    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 12px 0;">
     
-    <h4 style="color: var(--text-main); margin-bottom: 12px;">Informações de Pagamento e Logística</h4>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <h4 style="color: var(--text-main); margin-bottom: 8px; font-size: 14px;">Informações de Pagamento e Logística</h4>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
       <div>
         <strong style="color: var(--text-main);">Modalidade de Envio:</strong><br>
-        <div style="margin-top: 6px;">
+        <div style="margin-top: 4px;">
           ${order.shipping_service_id === 'pickup' 
-            ? `<span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-weight: bold;">🏬 Retirada Presencial</span>` 
+            ? `<span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 4px 6px; border-radius: 4px; font-weight: bold;">🏬 Retirada Presencial</span>` 
             : (order.shipping_service_id 
-                ? `<span style="font-size: 11px; background: #fef08a; color: #854d0e; padding: 4px 8px; border-radius: 4px; font-weight: bold;">🚚 ${escapeHTML(shippingName)}</span>` 
+                ? `<span style="font-size: 11px; background: #fef08a; color: #854d0e; padding: 4px 6px; border-radius: 4px; font-weight: bold;">🚚 ${escapeHTML(shippingName)}</span>` 
                 : '<span style="color: var(--text-muted);">Não Informado</span>')}
         </div>
       </div>
@@ -2602,15 +2600,14 @@ window.openOrderModal = function(orderId) {
         <strong style="color: var(--text-main);">Código de Rastreio:</strong><br>
         ${escapeHTML(order.melhor_envio_tracking || "N/A")}
       </div>
+      ${order.shipping_service_id !== 'pickup' ? `
+      <div style="display: flex; align-items: flex-end;">
+        <button style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-main); border-radius: var(--radius-sm); height: 32px; padding: 0 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" type="button" onclick="openAgenciesModal('${shippingCompanyParam}')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+          📍 Buscar Agências
+        </button>
+      </div>
+      ` : ''}
     </div>
-    
-    ${order.shipping_service_id !== 'pickup' ? `
-    <div style="margin-top: 24px; display: flex; justify-content: flex-start; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05);">
-      <button style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-main); border-radius: var(--radius-sm); width: auto; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;" type="button" onclick="openAgenciesModal('${shippingCompanyParam}')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
-        📍 Localizar Ponto de Postagem
-      </button>
-    </div>
-    ` : ''}
   `;
 
   modal.style.display = "flex";
