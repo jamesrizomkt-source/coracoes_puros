@@ -62,7 +62,7 @@ serve(async (req) => {
     const safeShipping = Number(body.shippingPrice) || 0
     const shippingServiceId = body.shippingServiceId || null
     const qty = Number(body.qty) || 1
-    const calculatedTotal = (bookPrice * qty) + safeShipping
+    const calculatedTotal = Number(((bookPrice * qty) + safeShipping).toFixed(2))
 
     if (formData?.issuer_id) {
       formData.issuer_id = Number(formData.issuer_id)
