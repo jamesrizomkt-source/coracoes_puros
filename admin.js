@@ -153,6 +153,9 @@ async function initApp() {
     // Verificar se o token ainda é válido chamando a API do Supabase
     const isValid = await verifySession();
     if (isValid) {
+      if (!state.profile || !state.profile.role) {
+        await fetchUserProfile(state.user.id);
+      }
       showAdminPanel();
     } else {
       clearSession();
@@ -525,6 +528,16 @@ function showAdminPanel() {
     emailEl.textContent = state.profile.email;
     roleEl.textContent = state.profile.role;
     avatarEl.textContent = state.profile.name ? state.profile.name.substring(0, 2).toUpperCase() : "AD";
+    
+    // Hide settings if not Master
+    const settingsBtn = document.getElementById("tab-btn-settings");
+    if (settingsBtn) {
+      if (state.profile.role !== "Master") {
+        settingsBtn.style.display = "none";
+      } else {
+        settingsBtn.style.display = "flex";
+      }
+    }
   } else if (state.user) {
     emailEl.textContent = state.user.email;
     roleEl.textContent = "Administrador";
@@ -599,7 +612,7 @@ function switchTab(tabId) {
   fetchAllData();
 }
 
-function switchSubTab(subTabId) {
+window.switchSubTab = function(subTabId) {
   // Alterar botões ativos
   document.querySelectorAll(".sub-tab-btn").forEach(btn => {
     btn.classList.remove("is-active");
@@ -1125,11 +1138,11 @@ function renderOrdersTable() {
 
     let paymentIcon = "";
     if (order.payment_method === "pix") {
-      paymentIcon = `<span title="Pago via PIX">💠 PIX</span>`;
+      paymentIcon = `<span style="font-size: 10px; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Pago via PIX">💠 PIX</span>`;
     } else if (order.payment_method === "credit_card") {
-      paymentIcon = `<span title="Pago via Cartão de Crédito">💳 Cartão</span>`;
+      paymentIcon = `<span style="font-size: 10px; background: #ede9fe; color: #5b21b6; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Pago via Cartão de Crédito">💳 Cartão</span>`;
     } else if (order.payment_method === "ticket" || order.payment_method === "bolbradesco") {
-      paymentIcon = `<span title="Pago via Boleto">📄 Boleto</span>`;
+      paymentIcon = `<span style="font-size: 10px; background: #f3f4f6; color: #374151; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Pago via Boleto">📄 Boleto</span>`;
     }
 
     // Se o pedido está pendente ou cancelado, mostramos o net um pouco desativado
@@ -1165,13 +1178,20 @@ function renderOrdersTable() {
           <div style="font-weight: 800; color: var(--text-main);">${escapeHTML(order.name || "Sem Nome")} <span style="font-size: 11px; background: var(--accent-orange); color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${qty}x</span></div>
           <div style="font-size: 12px; color: var(--text-muted);">${escapeHTML(order.email)}</div>
           <div style="font-size: 11px; color: var(--accent-blue);">${escapeHTML(order.phone || "Não Informado")}</div>
+          <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">
+            ${order.shipping_service_id === 'pickup' 
+              ? `<span style="font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: bold;">🏬 Retirada Presencial</span>` 
+              : (order.shipping_service_id ? `<span style="font-size: 10px; background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">🚚 Correios/Transportadora</span>` : '')}
+          </div>
         </td>
         
         <td style="font-size: 13px; color: var(--text-muted);">${formattedDate}</td>
         
         <td style="font-weight: 700; color: var(--text-main); ${opacityStyle}">
-          ${formatCurrency(gross)}<br>
-          <span style="font-size: 10px; font-weight: normal; color: var(--text-muted);">${paymentIcon}</span>
+          ${formatCurrency(gross)}
+          <div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px;">
+            ${paymentIcon}
+          </div>
         </td>
         
         <td style="font-size: 13px; color: var(--accent-red); cursor: help; ${opacityStyle}" title="Frete: ${formatCurrency(shipping)} | MP: ${formatCurrency(mpFee)}">
@@ -1190,6 +1210,12 @@ function renderOrdersTable() {
               <option value="shipped" ${order.status === "shipped" ? "selected" : ""}>🔵 Enviado</option>
               <option value="cancelled" ${order.status === "cancelled" ? "selected" : ""}>🔴 Cancelado</option>
             </select>
+            ${order.status_changed_by ? `
+            <div style="font-size: 9px; color: var(--text-muted); line-height: 1.2;">
+              📝 Alterado por:<br>
+              <strong>${escapeHTML(order.status_changed_by)}</strong><br>
+              ${new Date(order.status_changed_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </div>` : ''}
             
             <div class="action-buttons" style="justify-content: flex-start;">
               ${labelBtn}
@@ -1399,6 +1425,9 @@ window.handleBulkAction = async function(action) {
 // Ação de Atualização de Status de Pedido Inline
 window.updateOrderStatus = async function(orderId, newStatus) {
   try {
+    const changedBy = state.profile?.name || state.user?.email || "Admin";
+    const changedAt = new Date().toISOString();
+    
     const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
       method: "PATCH",
       headers: {
@@ -1407,7 +1436,11 @@ window.updateOrderStatus = async function(orderId, newStatus) {
         "Content-Type": "application/json",
         "Prefer": "return=representation"
       },
-      body: JSON.stringify({ status: newStatus })
+      body: JSON.stringify({ 
+        status: newStatus,
+        status_changed_by: changedBy,
+        status_changed_at: changedAt
+      })
     });
 
     if (res.ok) {
@@ -1421,6 +1454,8 @@ window.updateOrderStatus = async function(orderId, newStatus) {
       const idx = state.orders.findIndex(o => o.id === orderId);
       if (idx !== -1) {
         state.orders[idx].status = newStatus;
+        state.orders[idx].status_changed_by = changedBy;
+        state.orders[idx].status_changed_at = changedAt;
         updateDashboardKPIs();
         renderOrdersTable(); // Re-renderizar a tabela para exibir ou esconder o botão de etiqueta
       }
@@ -1754,10 +1789,16 @@ function showToast(message, type = "info") {
 }
 
 // Controle de Modal Confirmar Exclusão
-function showConfirmModal(title, desc, onConfirm) {
+function showConfirmModal(title, desc, onConfirm, confirmText = "Excluir Registro", confirmColor = "var(--accent-red)") {
   const modal = document.getElementById("js-confirm-modal");
   document.getElementById("confirm-modal-title").textContent = title;
   document.getElementById("confirm-modal-desc").textContent = desc;
+  
+  const confirmBtn = document.getElementById("confirm-btn-proceed");
+  if (confirmBtn) {
+    confirmBtn.textContent = confirmText;
+    confirmBtn.style.background = confirmColor;
+  }
   
   state.currentModalCallback = onConfirm;
   modal.classList.add("is-active");
@@ -1791,7 +1832,7 @@ function renderUsersTable() {
   if (!tbody) return;
 
   const searchQuery = document.getElementById("users-search").value.toLowerCase().trim();
-  const isAdmin = state.profile && state.profile.role === "Admin_Lider";
+  const isAdmin = state.profile && state.profile.role === "Master";
 
   // Filtrar
   const filtered = state.users.filter(user => {
@@ -1815,8 +1856,14 @@ function renderUsersTable() {
     const isSelf = state.user && state.user.email === user.email;
     const disabledAttr = (!isAdmin || isSelf) ? "disabled" : "";
     
-    // Se o usuário não for Admin_Lider, os selects de cargo ficam inativos
+    // Se o usuário não for Master, os selects de cargo ficam inativos
     const actionsHtml = (isAdmin && !isSelf) ? `
+      <button class="btn-icon" style="color: var(--accent-orange);" title="Visão de Usuário (Simular Painel)" onclick="impersonateUser('${user.id}', '${escapeHTML(user.name || "")}', '${escapeHTML(user.email)}', '${user.role}')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
+      <button class="btn-icon" style="color: var(--accent-blue);" title="Enviar Link de Recuperação de Senha" onclick="sendPasswordReset('${escapeHTML(user.email)}')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+      </button>
       <button class="btn-icon red" title="Excluir Usuário" onclick="confirmDeleteUser('${user.id}', '${escapeHTML(user.name || "Sem Nome")}', '${escapeHTML(user.email)}')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
       </button>
@@ -1828,9 +1875,8 @@ function renderUsersTable() {
         <td>${escapeHTML(user.email)}</td>
         <td>
           <select class="table-select" ${disabledAttr} onchange="updateUserRole('${user.id}', this.value)" style="min-width: 140px;">
-            <option value="Assessoria" ${user.role === "Assessoria" ? "selected" : ""}>Assessoria</option>
-            <option value="Admin_Lider" ${user.role === "Admin_Lider" ? "selected" : ""}>Admin Líder</option>
-            <option value="Regional" ${user.role === "Regional" ? "selected" : ""}>Regional</option>
+            <option value="Gerente" ${user.role === "Gerente" ? "selected" : ""}>Gerente</option>
+            <option value="Master" ${user.role === "Master" ? "selected" : ""}>Master</option>
             <option value="Aguardando Aprovação" ${user.role === "Aguardando Aprovação" ? "selected" : ""}>Aprovação Pendente</option>
           </select>
         </td>
@@ -1843,7 +1889,7 @@ function renderUsersTable() {
     `;
   }).join("");
 
-  // Desativar inputs de criação de usuário se não for Admin_Lider
+  // Desativar inputs de criação de usuário se não for Master
   const signupInputs = document.querySelectorAll("#js-signup-form input, #js-signup-form select, #js-signup-form button");
   if (!isAdmin) {
     signupInputs.forEach(el => el.disabled = true);
@@ -1857,7 +1903,7 @@ function renderUsersTable() {
       notice.style.fontSize = "13px";
       notice.style.marginTop = "16px";
       notice.style.fontWeight = "600";
-      notice.textContent = "⚠️ Apenas administradores com cargo 'Admin Líder' podem criar ou gerenciar usuários.";
+      notice.innerHTML = `⚠️ Apenas administradores com cargo 'Master' podem criar ou gerenciar usuários.`;
       form.appendChild(notice);
     }
   } else {
@@ -1927,6 +1973,88 @@ window.confirmDeleteUser = function(userId, name, email) {
   );
 }
 
+// Ação de Redefinir Senha
+window.sendPasswordReset = async function(email) {
+  if (!confirm(`Deseja enviar um link de redefinição de senha para o e-mail: ${email}?`)) return;
+  
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email })
+    });
+    
+    if (res.ok) {
+      showToast(`Link de recuperação enviado para ${email}!`, "success");
+    } else {
+      const data = await res.json();
+      throw new Error(data.msg || data.message || "Erro ao enviar link de recuperação.");
+    }
+  } catch (err) {
+    console.error("Erro ao enviar recuperação:", err);
+    showToast(err.message, "error");
+  }
+}
+
+// Ação de Simular Usuário
+window.impersonateUser = function(userId, name, email, role) {
+  showConfirmModal(
+    "Simular Visão de Usuário",
+    `Deseja simular a visão do painel como ${name || email}?`,
+    () => {
+      if (!sessionStorage.getItem("real_admin_profile")) {
+        sessionStorage.setItem("real_admin_profile", JSON.stringify(state.profile));
+      }
+      
+      const fakeProfile = { id: userId, email: email, name: name, role: role };
+      state.profile = fakeProfile;
+      sessionStorage.setItem("admin_profile", JSON.stringify(fakeProfile));
+      
+      showToast(`Modo visão de usuário ativado: ${email}`, "info");
+      
+      let banner = document.getElementById("impersonation-banner");
+      if (!banner) {
+        banner = document.createElement("div");
+        banner.id = "impersonation-banner";
+        banner.style.position = "fixed";
+        banner.style.top = "0";
+        banner.style.left = "0";
+        banner.style.width = "100%";
+        banner.style.background = "var(--accent-orange)";
+        banner.style.color = "#000";
+        banner.style.textAlign = "center";
+        banner.style.padding = "10px";
+        banner.style.zIndex = "999999";
+        banner.style.fontWeight = "bold";
+        banner.style.boxShadow = "0 2px 10px rgba(0,0,0,0.5)";
+        document.body.appendChild(banner);
+      }
+      banner.innerHTML = `⚠️ Você está visualizando o painel como <strong>${email}</strong> (${role}). <button onclick="exitImpersonation()" style="margin-left: 15px; padding: 4px 10px; background: #000; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Voltar ao meu Acesso</button>`;
+      
+      showAdminPanel();
+    },
+    "Simular Acesso",
+    "var(--accent-orange)"
+  );
+}
+
+window.exitImpersonation = function() {
+  const realProfileStr = sessionStorage.getItem("real_admin_profile");
+  if (realProfileStr) {
+    state.profile = JSON.parse(realProfileStr);
+    sessionStorage.setItem("admin_profile", realProfileStr);
+    sessionStorage.removeItem("real_admin_profile");
+  }
+  const banner = document.getElementById("impersonation-banner");
+  if (banner) banner.remove();
+  
+  showToast("Você voltou ao seu acesso normal.", "success");
+  showAdminPanel();
+}
+
 // Ação de Cadastro de Novo Usuário (Supabase Auth SignUp sem deslogar admin)
 async function handleSignUp(e) {
   e.preventDefault();
@@ -1955,8 +2083,9 @@ async function handleSignUp(e) {
     const signUpData = await signUpRes.json();
     
     if (!signUpRes.ok) {
+      const errorMsg = signUpData.msg || signUpData.message || signUpData.error_description || "";
       // Caso o usuário já exista na autenticação auth.users
-      if (signUpData.message && signUpData.message.includes("already registered")) {
+      if (errorMsg.includes("already registered")) {
         showToast("Usuário já registrado no Auth. Tentando associar perfil...", "info");
         
         // Chamar o RPC de restauração/criação de perfil para usuários existentes
@@ -1977,7 +2106,7 @@ async function handleSignUp(e) {
         
         if (rpcRes.ok && rpcData === true) {
           // Atualizar o cargo do perfil existente para o cargo selecionado pelo administrador
-          // O RPC cria por padrão como 'Regional', então aplicamos a atualização necessária
+          // O RPC cria por padrão como 'Gerente', então aplicamos a atualização necessária
           const usersRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?email=eq.${email}`, {
             headers: {
               "apikey": SUPABASE_ANON_KEY,
@@ -1997,7 +2126,7 @@ async function handleSignUp(e) {
           throw new Error("Usuário já existe e não foi possível restaurar seu perfil.");
         }
       }
-      throw new Error(signUpData.message || "Falha na criação do usuário.");
+      throw new Error(errorMsg || "Falha na criação do usuário.");
     }
     
     // 2. Criar perfil na tabela public.profiles
@@ -2019,6 +2148,11 @@ async function handleSignUp(e) {
     if (resProfile.ok) {
       showToast(`Usuário ${name} cadastrado com sucesso!`, "success");
       document.getElementById("js-signup-form").reset();
+      
+      // Enviar e-mail de onboarding pelo cliente de email do administrador
+      const subject = encodeURIComponent("Bem-vindo ao Painel - Corações Puros");
+      const body = encodeURIComponent(`Olá ${name || 'Usuário'},\n\nSua conta no Painel Administrativo Corações Puros foi criada com sucesso!\n\nAbaixo estão seus dados de acesso provisórios:\n\nUsuário: ${email}\nSenha: ${password}\n\nLink de Acesso: ${window.location.origin}/admin.html\n\nRecomendamos fortemente que você altere sua senha em seu primeiro acesso, clicando em "Esqueci minha senha" na tela de login.\n\nAbraços,\nEquipe Corações Puros`);
+      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
       
       // Recarregar os perfis
       fetchAllData();
@@ -2372,6 +2506,18 @@ window.openOrderModal = function(orderId) {
   const dateStr = new Date(order.created_at).toLocaleString('pt-BR');
   const statusLabels = { pending: 'Pendente', paid: 'Pago', shipped: 'Enviado', cancelled: 'Cancelado' };
 
+  const serviceMap = {
+    "1": "Correios PAC",
+    "2": "Correios SEDEX",
+    "3": "Jadlog Package",
+    "4": "Jadlog .Com",
+    "17": "Correios Mini Envios",
+    "35": "Loggi / Transportadora"
+  };
+  
+  const shippingName = order.shipping_company || serviceMap[order.shipping_service_id] || (order.shipping_service_id ? "Correios/Transportadora" : "Não Informado");
+  const shippingCompanyParam = shippingName.toLowerCase().includes('jadlog') ? 'Jadlog' : (shippingName.toLowerCase().includes('loggi') ? 'Loggi' : 'Correios');
+
   content.innerHTML = `
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
       <div>
@@ -2417,7 +2563,13 @@ window.openOrderModal = function(orderId) {
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
       <div>
         <strong style="color: var(--text-main);">Modalidade de Envio:</strong><br>
-        <span style="color: var(--accent-orange); font-weight: 600;">${escapeHTML(order.shipping_company || "N/A")}</span>
+        <div style="margin-top: 6px;">
+          ${order.shipping_service_id === 'pickup' 
+            ? `<span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-weight: bold;">🏬 Retirada Presencial</span>` 
+            : (order.shipping_service_id 
+                ? `<span style="font-size: 11px; background: #fef08a; color: #854d0e; padding: 4px 8px; border-radius: 4px; font-weight: bold;">🚚 ${escapeHTML(shippingName)}</span>` 
+                : '<span style="color: var(--text-muted);">Não Informado</span>')}
+        </div>
       </div>
       <div>
         <strong style="color: var(--text-main);">ID Pagamento MP:</strong><br>
@@ -2429,11 +2581,13 @@ window.openOrderModal = function(orderId) {
       </div>
     </div>
     
+    ${order.shipping_service_id !== 'pickup' ? `
     <div style="margin-top: 24px; display: flex; justify-content: flex-start; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05);">
-      <button style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-main); border-radius: var(--radius-sm); width: auto; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;" type="button" onclick="openAgenciesModal('${escapeHTML(order.shipping_company || 'Correios')}')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+      <button style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-main); border-radius: var(--radius-sm); width: auto; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;" type="button" onclick="openAgenciesModal('${shippingCompanyParam}')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
         📍 Localizar Ponto de Postagem
       </button>
     </div>
+    ` : ''}
   `;
 
   modal.style.display = "flex";
