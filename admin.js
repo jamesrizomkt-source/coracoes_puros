@@ -610,6 +610,42 @@ function switchTab(tabId) {
 
   // Buscar dados específicos se a lista estiver vazia ou forçar atualização
   fetchAllData();
+  
+  if (tabId === "orders") {
+    fetchMelhorEnvioBalance();
+  }
+}
+
+let isFetchingBalance = false;
+async function fetchMelhorEnvioBalance() {
+  if (isFetchingBalance) return;
+  const balanceEl = document.getElementById("order-kpi-value-me-balance");
+  if (!balanceEl) return;
+  
+  if (balanceEl.textContent !== "R$ ...") return; // Already fetched
+  
+  isFetchingBalance = true;
+  balanceEl.textContent = "Buscando...";
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/melhor-envio/balance`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${state.token}`
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const balance = data.balance != null ? parseFloat(data.balance) : 0;
+      balanceEl.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balance);
+    } else {
+      balanceEl.textContent = "Erro";
+    }
+  } catch (err) {
+    console.error("Erro ao buscar saldo Melhor Envio:", err);
+    balanceEl.textContent = "Erro";
+  } finally {
+    isFetchingBalance = false;
+  }
 }
 
 window.switchSubTab = function(subTabId) {

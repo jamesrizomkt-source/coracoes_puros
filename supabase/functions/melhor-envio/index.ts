@@ -202,6 +202,27 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------
+    // ENDPOINT: BUSCAR SALDO NA CARTEIRA (GET /balance)
+    // -------------------------------------------------------------
+    if (path.endsWith("/balance")) {
+      if (req.method !== "GET" && req.method !== "POST") {
+        return new Response("Método Não Permitido", { status: 405, headers: corsHeaders });
+      }
+
+      const balanceReq = await fetch(`${melhorEnvioBaseUrl}/api/v2/me/balance`, {
+        method: "GET",
+        headers: { "Accept": "application/json", "Authorization": `Bearer ${meToken}` }
+      });
+
+      if (!balanceReq.ok) {
+        return new Response(JSON.stringify({ error: "Erro ao buscar saldo", details: await balanceReq.text() }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const balanceData = await balanceReq.json();
+      return new Response(JSON.stringify(balanceData), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // -------------------------------------------------------------
     // ENDPOINT: BUSCAR PONTOS DE POSTAGEM (GET /agencies)
     // -------------------------------------------------------------
     if (path.endsWith("/agencies")) {
