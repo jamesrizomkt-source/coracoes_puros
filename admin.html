@@ -896,8 +896,8 @@
     <!-- ==========================================
          ORDER DETAILS MODAL
          ========================================== -->
-    <div class="modal-backdrop" id="js-order-modal" role="dialog" aria-modal="true" aria-labelledby="order-modal-title" style="display: none; align-items: center; justify-content: center; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; padding: 20px;">
-      <div class="modal-card" style="background: var(--bg-card); border-radius: var(--radius-md); padding: 24px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border-color); position: relative;">
+    <div class="modal-backdrop" id="js-order-modal" role="dialog" aria-modal="true" aria-labelledby="order-modal-title" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; padding: 20px; overflow-y: auto;">
+      <div class="modal-card" style="background: var(--bg-card); border-radius: var(--radius-md); padding: 24px; width: 100%; max-width: 600px; margin: 20px auto; border: 1px solid var(--border-color); position: relative;">
         <button type="button" onclick="closeOrderModal()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
@@ -916,8 +916,8 @@
     <!-- ==========================================
          AGENCIES MAP MODAL (PONTOS DE POSTAGEM)
          ========================================== -->
-    <div class="modal-backdrop" id="js-agencies-modal" role="dialog" aria-modal="true" aria-labelledby="agencies-modal-title" style="display: none; align-items: center; justify-content: center; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1100; padding: 20px;">
-      <div class="modal-card" style="background: var(--bg-card); border-radius: var(--radius-md); padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border-color); position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+    <div class="modal-backdrop" id="js-agencies-modal" role="dialog" aria-modal="true" aria-labelledby="agencies-modal-title" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1100; padding: 20px; overflow-y: auto;">
+      <div class="modal-card" style="background: var(--bg-card); border-radius: var(--radius-md); padding: 24px; width: 100%; max-width: 480px; margin: 20px auto; border: 1px solid var(--border-color); position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
         <button type="button" onclick="closeAgenciesModal()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-muted)'">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
