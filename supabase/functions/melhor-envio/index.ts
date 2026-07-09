@@ -248,8 +248,27 @@ serve(async (req) => {
         );
       }
 
-      // Consulta a API do Melhor Envio para listar agências
-      const agenciesUrl = `${melhorEnvioBaseUrl}/api/v2/me/shipment/agencies?company=${companyId}&country=BR&postal_code=${postalCode}`;
+      // 1. Buscar cidade e estado usando ViaCEP
+      let stateAbbr = "";
+      let cityName = "";
+      try {
+        const viacepRes = await fetch(`https://viacep.com.br/ws/${postalCode}/json/`);
+        if (viacepRes.ok) {
+          const viacepData = await viacepRes.json();
+          if (!viacepData.erro) {
+            stateAbbr = viacepData.uf;
+            cityName = encodeURIComponent(viacepData.localidade);
+          }
+        }
+      } catch (e) {
+        console.warn("Erro ao consultar ViaCEP:", e);
+      }
+
+      // 2. Consulta a API do Melhor Envio para listar agências
+      let agenciesUrl = `${melhorEnvioBaseUrl}/api/v2/me/shipment/agencies?company=${companyId}&country=BR`;
+      if (stateAbbr && cityName) {
+        agenciesUrl += `&state=${stateAbbr}&city=${cityName}`;
+      }
       
       const agenciesRes = await fetch(agenciesUrl, {
         method: "GET",
