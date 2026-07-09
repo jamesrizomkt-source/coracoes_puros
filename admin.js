@@ -1148,12 +1148,29 @@ function renderOrdersTable() {
     // Se o pedido está pendente ou cancelado, mostramos o net um pouco desativado
     const opacityStyle = (order.status === "pending" || order.status === "cancelled") ? "opacity: 0.5;" : "";
 
+    const serviceMap = {
+      "1": "Correios PAC",
+      "2": "Correios SEDEX",
+      "3": "Jadlog Package",
+      "4": "Jadlog .Com",
+      "17": "Correios Mini Envios",
+      "35": "Loggi / Transportadora"
+    };
+    
+    const shippingName = order.shipping_company || serviceMap[order.shipping_service_id] || (order.shipping_service_id ? "Correios/Transportadora" : "Não Informado");
+
     // Check se já estava selecionado (manter estado ao re-renderizar)
     const isChecked = window.selectedOrders && window.selectedOrders.has(order.id) ? "checked" : "";
 
     let labelBtn = "";
     if (order.status === "paid" || order.status === "shipped") {
-      if (order.melhor_envio_label_url) {
+      if (order.shipping_service_id === 'pickup') {
+        labelBtn = `
+          <span class="btn-icon" title="Retirada Presencial" style="color: var(--text-muted); border-color: transparent; cursor: default;">
+            🏬
+          </span>
+        `;
+      } else if (order.melhor_envio_label_url) {
         labelBtn = `
           <a href="${order.melhor_envio_label_url}" target="_blank" class="btn-icon" title="Imprimir Etiqueta" style="color: var(--text-main); border-color: var(--line);">
             🖨️
@@ -1181,7 +1198,7 @@ function renderOrdersTable() {
           <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">
             ${order.shipping_service_id === 'pickup' 
               ? `<span style="font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: bold;">🏬 Retirada Presencial</span>` 
-              : (order.shipping_service_id ? `<span style="font-size: 10px; background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">🚚 Correios/Transportadora</span>` : '')}
+              : (order.shipping_service_id ? `<span style="font-size: 10px; background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">🚚 ${escapeHTML(shippingName)}</span>` : '')}
           </div>
         </td>
         
@@ -2656,7 +2673,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const res = await fetch(`${SUPABASE_URL}/functions/v1/melhor-envio/agencies?company=${company}&postal_code=${cep}`, {
           method: "GET",
           headers: {
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "Authorization": `Bearer ${state.token}`
           }
         });
         
@@ -2677,16 +2695,25 @@ document.addEventListener("DOMContentLoaded", () => {
         resultsDiv.innerHTML = agencies.slice(0, 5).map(agency => {
           const name = escapeHTML(agency.name || "Agência");
           const address = agency.address || {};
-          const label = escapeHTML(address.label || "Endereço não disponível");
+          const street = escapeHTML(address.address || "Endereço não disponível");
           const number = escapeHTML(address.number || "S/N");
           const district = escapeHTML(address.district || "");
-          const city = escapeHTML(address.city || "");
+          
+          let cityName = "";
+          let stateAbbr = "";
+          if (address.city) {
+            cityName = escapeHTML(address.city.city || "");
+            if (address.city.state) {
+              stateAbbr = escapeHTML(address.city.state.state_abbr || "");
+            }
+          }
+          const cityString = cityName ? `${cityName} - ${stateAbbr}` : "";
           
           return `
             <div style="background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 16px;">
               <strong style="color: var(--text-main); font-size: 15px; display: block; margin-bottom: 4px;">${name}</strong>
-              <span style="color: var(--text-muted); font-size: 13px;">${label}, ${number} ${district ? ' - ' + district : ''}</span><br>
-              <span style="color: var(--text-muted); font-size: 13px;">${city}</span>
+              <span style="color: var(--text-muted); font-size: 13px;">${street}, ${number} ${district ? ' - ' + district : ''}</span><br>
+              <span style="color: var(--text-muted); font-size: 13px;">${cityString}</span>
             </div>
           `;
         }).join("");

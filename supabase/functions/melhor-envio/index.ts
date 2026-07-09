@@ -230,6 +230,24 @@ serve(async (req) => {
         );
       }
 
+      // Interceptar Loggi, já que não tem agências próprias na API v2 da mesma forma
+      if (companyId === "loggi") {
+        return new Response(
+          JSON.stringify({
+            agencies: [
+              {
+                name: "Loggi - Coleta ou Melhor Ponto",
+                address: {
+                  label: "A Loggi realiza coleta no seu endereço cadastrado ou você pode postar o pacote em qualquer unidade do Melhor Ponto. Verifique as regras no painel do Melhor Envio.",
+                  number: "S/N"
+                }
+              }
+            ]
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Consulta a API do Melhor Envio para listar agências
       const agenciesUrl = `${melhorEnvioBaseUrl}/api/v2/me/shipment/agencies?company=${companyId}&country=BR&postal_code=${postalCode}`;
       
@@ -452,6 +470,9 @@ serve(async (req) => {
       if (!orders || orders.length === 0) return new Response(JSON.stringify({ error: "Pedido não encontrado" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       
       const order = orders[0];
+      if (order.shipping_service_id === 'pickup') {
+        return new Response(JSON.stringify({ error: "Este pedido é de Retirada Presencial. Não há etiqueta para gerar." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       if (!order.address_street || !order.address_number || !order.address_cep || !order.buyer_cpf) {
         return new Response(JSON.stringify({ error: "O pedido não possui endereço completo ou CPF salvo no banco." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -548,6 +569,9 @@ serve(async (req) => {
       const senderFrom = await getSenderData();
 
       for (const order of orders) {
+        if (order.shipping_service_id === 'pickup') {
+          continue;
+        }
         if (!order.address_street || !order.address_number || !order.address_cep || !order.buyer_cpf) {
           continue; 
         }
@@ -668,6 +692,10 @@ serve(async (req) => {
 
       if (!order.shipping_service_id) {
          return new Response(JSON.stringify({ error: "O pedido não possui transportadora selecionada (shipping_service_id não definido)." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      if (order.shipping_service_id === 'pickup') {
+         return new Response(JSON.stringify({ error: "Este pedido é de Retirada Presencial. Não há etiqueta para comprar." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       if (order.melhor_envio_tracking) {

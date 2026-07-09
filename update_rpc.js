@@ -114,7 +114,8 @@ async function run() {
         'servicos', (
            SELECT jsonb_agg(s)
            FROM jsonb_array_elements(v_services) s
-           WHERE NOT (s ? 'error') OR (s->>'error' IS NULL) OR (s->>'error' = '')
+           WHERE (NOT (s ? 'error') OR (s->>'error' IS NULL) OR (s->>'error' = ''))
+           AND NOT (s->'company'->>'name' ILIKE '%loggi%')
         )
       );
     END;
