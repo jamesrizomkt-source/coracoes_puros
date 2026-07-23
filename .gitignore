@@ -3,9 +3,26 @@
 node_modules
 dist
 .env
+<<<<<<< HEAD
+.supabase
+.vite
+
+*.mjs
+check_*.js
+fix_*.js
+query_*.js
+update_*.js
+get_*.js
+create_*.js
+test_*.js
+secrets_output.txt
+status_output.txt
+*.txt
+=======
 
 *.mjs
 check_cols.js
 fix_rls.js
 check_orders_qty.js
 fix_orders.js
+>>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3

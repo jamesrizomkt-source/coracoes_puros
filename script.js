@@ -211,7 +211,11 @@ if (quiz) {
     optionsElement.innerHTML = "";
     feedbackElement.textContent =
       "Continue aprendendo, compartilhe informação com responsabilidade e conheça a obra Corações Puros para aprofundar esse compromisso.";
+<<<<<<< HEAD
+    nextButton.textContent = "Garanta seu exemplar por R$ 59,90";
+=======
     nextButton.textContent = "Conhecer o livro";
+>>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3
     nextButton.disabled = false;
 
     // Salva as respostas no Supabase

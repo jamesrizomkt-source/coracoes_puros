@@ -19,23 +19,61 @@ serve(async (req) => {
       try { body = JSON.parse(rawBody) } catch(e) {}
     }
 
+<<<<<<< HEAD
+    const { message, record, old_record, type, table } = body
+=======
     const { message, record, type, table } = body
+>>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3
     
     let finalMessage = message;
 
     // Supabase Database Webhook (INSERT no banco)
     if (type === "INSERT" && record) {
       if (table === "quiz_responses") {
+<<<<<<< HEAD
+        const score = record.score || 0;
+        const total = record.total_questions || 6;
+        if (score === total) {
+          finalMessage = `<b>🏆 Gabarito no Quiz (Lead Quente!)</b>\n\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Pontuação:</b> ${score}/${total} (100% de acertos!)`;
+        } else {
+          finalMessage = `<b>🧠 Novo Quiz Respondido!</b>\n\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Pontuação:</b> ${score}/${total}`;
+        }
+      } else if (table === "messages") {
+        finalMessage = `<b>📩 Nova Mensagem de Contato!</b>\n\n<b>Nome:</b> ${record.name || 'N/A'}\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Mensagem:</b> ${record.message || 'N/A'}`;
+      } else if (table === "orders") {
+        const qty = record.quantity || 1;
+        const volumeAlert = qty >= 5 ? `<b>🚨 Pedido de Alto Volume! (${qty} exemplares)</b>\n\n` : ``;
+        finalMessage = `${volumeAlert}<b>🎉 Novo Pedido Recebido!</b>\n\n<b>Nome:</b> ${record.name || 'N/A'}\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Telefone:</b> ${record.phone || 'N/A'}\n<b>Quantidade:</b> ${qty}\n<b>Status:</b> ${record.status || 'N/A'}`;
+=======
         finalMessage = `<b>🧠 Novo Quiz Respondido!</b>\n\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Pontuação:</b> ${record.score || 0}/${record.total_questions || 5}`;
       } else if (table === "messages") {
         finalMessage = `<b>📩 Nova Mensagem de Contato!</b>\n\n<b>Nome:</b> ${record.name || 'N/A'}\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Mensagem:</b> ${record.message || 'N/A'}`;
       } else if (table === "orders") {
         finalMessage = `<b>🎉 Novo Pedido Recebido!</b>\n\n<b>Nome:</b> ${record.name || 'N/A'}\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Telefone:</b> ${record.phone || 'N/A'}\n<b>Status:</b> ${record.status || 'N/A'}`;
+>>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3
       } else {
         finalMessage = `<b>🔔 Novo Registro (${table || 'Desconhecido'})!</b>\n<pre>${JSON.stringify(record, null, 2)}</pre>`;
       }
     }
 
+<<<<<<< HEAD
+    // Supabase Database Webhook (UPDATE no banco)
+    if (type === "UPDATE" && record && old_record) {
+      if (table === "orders" && old_record.status !== record.status) {
+        const qty = record.quantity || 1;
+        if (record.status === "paid") {
+          finalMessage = `<b>✅ Pedido Pago com Sucesso!</b>\n\n<b>Nome:</b> ${record.name || 'N/A'}\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Quantidade:</b> ${qty} exemplares\n<b>Status:</b> Pago`;
+        } else if (record.status === "shipped") {
+          const tracking = record.melhor_envio_tracking || 'N/A';
+          finalMessage = `<b>🚚 Pedido Enviado!</b>\n\n<b>Nome:</b> ${record.name || 'N/A'}\n<b>Quantidade:</b> ${qty} exemplares\n<b>Código de Rastreamento:</b> <code>${tracking}</code>\n<b>Status:</b> Enviado`;
+        } else if (record.status === "cancelled") {
+          finalMessage = `<b>❌ Pedido Cancelado</b>\n\n<b>Nome:</b> ${record.name || 'N/A'}\n<b>Email:</b> ${record.email || 'N/A'}\n<b>Status:</b> Cancelado`;
+        }
+      }
+    }
+
+=======
+>>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3
     if (!finalMessage) {
       return new Response(JSON.stringify({ error: "No message provided" }), { headers: corsHeaders, status: 400 })
     }
