@@ -794,11 +794,7 @@ dd {
 }
 
 .footer-links a {
-<<<<<<< HEAD
   color: rgba(255, 255, 255, 0.8);
-=======
-  color: rgba(255, 255, 255, 0.68);
->>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3
   font-weight: 500;
   transition: color 180ms ease, transform 180ms ease;
   display: inline-block;
@@ -818,11 +814,7 @@ dd {
 }
 
 .footer-desc {
-<<<<<<< HEAD
   color: rgba(255, 255, 255, 0.72);
-=======
-  color: rgba(255, 255, 255, 0.58);
->>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3
   font-size: 14px;
   line-height: 1.6;
   margin: 0;
@@ -834,11 +826,7 @@ dd {
   justify-content: space-between;
   gap: 24px;
   padding: 28px clamp(18px, 4vw, 56px);
-<<<<<<< HEAD
   color: rgba(255, 255, 255, 0.65);
-=======
-  color: rgba(255, 255, 255, 0.48);
->>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3
   background: #05111b;
   font-size: 13px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -852,11 +840,7 @@ dd {
 
 .footer-bottom a {
   font-weight: 700;
-<<<<<<< HEAD
   color: rgba(255, 255, 255, 0.8);
-=======
-  color: rgba(255, 255, 255, 0.65);
->>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3
   transition: color 180ms ease;
 }
 
