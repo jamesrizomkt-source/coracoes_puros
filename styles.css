@@ -34,10 +34,7 @@ body {
 img {
   display: block;
   max-width: 100%;
-<<<<<<< HEAD
   height: auto;
-=======
->>>>>>> 011d3b6fe45aabbb67c5eb4d687766d78991e7c3
 }
 
 a {
@@ -162,8 +159,8 @@ a {
 .hero-shape-one {
   width: 330px;
   height: 330px;
-  top: -120px;
-  right: -72px;
+  top: 50px;
+  right: -60px;
   background: var(--orange);
 }
 
