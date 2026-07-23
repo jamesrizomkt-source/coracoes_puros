@@ -154,6 +154,7 @@ a {
   position: absolute;
   border-radius: 999px;
   pointer-events: none;
+  z-index: 0;
 }
 
 .hero-shape-one {
@@ -167,15 +168,16 @@ a {
 .hero-shape-two {
   width: 360px;
   height: 360px;
-  left: -160px;
-  bottom: -160px;
-  border: 38px solid var(--blue);
+  left: -240px;
+  bottom: -240px;
+  border: 24px solid var(--blue);
+  opacity: 0.35;
 }
 
 .hero-content,
 .hero-book {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .hero-content {
@@ -931,9 +933,9 @@ dd {
   }
 
   .hero-shape-two {
-    left: -230px;
-    bottom: -220px;
-    border-width: 30px;
+    left: -250px;
+    bottom: -240px;
+    border-width: 20px;
   }
 
   .hero-book {
