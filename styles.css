@@ -128,12 +128,12 @@ a {
 .hero {
   position: relative;
   display: grid;
-  min-height: 92svh;
+  min-height: 75svh;
   grid-template-columns: minmax(0, 1fr) minmax(330px, 0.72fr);
   gap: clamp(28px, 5vw, 72px);
   align-items: center;
   overflow: hidden;
-  padding: 120px clamp(18px, 6vw, 84px) 70px;
+  padding: 100px clamp(18px, 6vw, 84px) 60px;
   background:
     radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.78), transparent 24%),
     linear-gradient(135deg, #eaf9fd 0%, var(--sky) 52%, #72d5f2 100%);
