@@ -34,7 +34,6 @@ body {
 img {
   display: block;
   max-width: 100%;
-  height: auto;
 }
 
 a {
@@ -154,30 +153,28 @@ a {
   position: absolute;
   border-radius: 999px;
   pointer-events: none;
-  z-index: 0;
 }
 
 .hero-shape-one {
   width: 330px;
   height: 330px;
-  top: 50px;
-  right: -60px;
+  top: -120px;
+  right: -72px;
   background: var(--orange);
 }
 
 .hero-shape-two {
   width: 360px;
   height: 360px;
-  left: -240px;
-  bottom: -240px;
-  border: 24px solid var(--blue);
-  opacity: 0.35;
+  left: -160px;
+  bottom: -160px;
+  border: 38px solid var(--blue);
 }
 
 .hero-content,
 .hero-book {
   position: relative;
-  z-index: 2;
+  z-index: 1;
 }
 
 .hero-content {
@@ -796,7 +793,7 @@ dd {
 }
 
 .footer-links a {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.68);
   font-weight: 500;
   transition: color 180ms ease, transform 180ms ease;
   display: inline-block;
@@ -816,7 +813,7 @@ dd {
 }
 
 .footer-desc {
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.58);
   font-size: 14px;
   line-height: 1.6;
   margin: 0;
@@ -828,7 +825,7 @@ dd {
   justify-content: space-between;
   gap: 24px;
   padding: 28px clamp(18px, 4vw, 56px);
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.48);
   background: #05111b;
   font-size: 13px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -842,7 +839,7 @@ dd {
 
 .footer-bottom a {
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.65);
   transition: color 180ms ease;
 }
 
@@ -933,9 +930,9 @@ dd {
   }
 
   .hero-shape-two {
-    left: -250px;
-    bottom: -240px;
-    border-width: 20px;
+    left: -230px;
+    bottom: -220px;
+    border-width: 30px;
   }
 
   .hero-book {
