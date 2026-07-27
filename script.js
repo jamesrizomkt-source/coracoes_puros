@@ -414,7 +414,10 @@ async function fetchAndRenderDynamicPrice() {
     if (res.ok) {
       const data = await res.json();
       if (data && data.length > 0) {
-        const dynamicPrice = data[0].value;
+        let dynamicPrice = data[0].value;
+        if (dynamicPrice && dynamicPrice.includes('.')) {
+          dynamicPrice = dynamicPrice.replace('.', ',');
+        }
         const priceSpans = document.querySelectorAll(".js-dynamic-price");
         priceSpans.forEach(span => {
           span.textContent = dynamicPrice;
