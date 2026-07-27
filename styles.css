@@ -284,6 +284,19 @@ h3 {
   min-width: 190px;
 }
 
+.price-highlight {
+  display: inline-block;
+  background-color: var(--blue-dark);
+  color: var(--white);
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-left: 6px;
+  font-size: 1.15em;
+  font-weight: 900;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
 .book-mockup {
   position: relative;
   width: min(420px, 100%);
