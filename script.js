@@ -397,3 +397,34 @@ if (contactForm) {
     }
   });
 }
+
+// ==========================================
+// BUSCAR PREÇO DINÂMICO
+// ==========================================
+async function fetchAndRenderDynamicPrice() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.book_price`, {
+      method: "GET",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const dynamicPrice = data[0].value;
+        const priceSpans = document.querySelectorAll(".js-dynamic-price");
+        priceSpans.forEach(span => {
+          span.textContent = dynamicPrice;
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Erro ao buscar preço do livro:", error);
+  }
+}
+
+// Iniciar a busca de preço ao carregar
+fetchAndRenderDynamicPrice();
