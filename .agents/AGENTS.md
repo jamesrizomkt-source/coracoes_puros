@@ -14,3 +14,6 @@ A seção `.hero` possui elementos absolutos que interferem no `.site-header` se
 - A classe `.hero` usa `min-height: 75svh;` (e não `92svh`) para evitar excesso de espaço em branco (whitespace) nas telas grandes acima e abaixo do conteúdo. Se necessitar ajustar grid gaps ou paddings, mantenha a coesão compacta e equilibrada da dobra principal.
 
 *Por favor, leia esta regra e aplique imediatamente o julgamento visual crítico ao alterar qualquer classe no hero section.*
+
+## 4. Regra Absoluta: Commits e GitHub
+- **AUTORIZAÇÃO EXPLÍCITA:** NUNCA execute `git push` ou `git commit` sem a autorização prévia e explícita do usuário. Esta é uma regra rígida. Qualquer alteração no código deve ser apresentada ao usuário primeiro. Somente após a aprovação clara do usuário, você poderá "subir para o github".
